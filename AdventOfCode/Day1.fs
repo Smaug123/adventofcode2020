@@ -46,8 +46,10 @@ module Day1 =
         seq {
             for i in 0..arr.Length - 1 do
                 for j in i..arr.Length - 1 do
+                    // very optimise, such lift
+                    let sum = arr.[i] + arr.[j]
                     for k in j..arr.Length - 1 do
-                        if arr.[i] + arr.[j] + arr.[k] = 2020 then
+                        if sum + arr.[k] = 2020 then
                             yield (arr.[i], arr.[j], arr.[k])
         }
         |> Seq.tryHead
