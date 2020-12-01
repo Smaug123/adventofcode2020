@@ -16,3 +16,5 @@ module TestDay1 =
     let ``Part 2`` () =
         Day1.part2 ()
         |> shouldEqual (Some 165795564)
+        Day1.part2' ()
+        |> shouldEqual (Some 165795564)

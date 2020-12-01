@@ -13,4 +13,3 @@ module Utils =
         use reader = new StreamReader(stream)
         reader.ReadToEnd().Split()
         |> List.ofArray
-
