@@ -22,6 +22,11 @@ module Day2 =
         |> shouldEqual 607
 
     [<Test>]
+    let ``Part 1, super speedy`` () =
+        Day2StateMachine.part1 ()
+        |> shouldEqual 607
+
+    [<Test>]
     let ``Part 2`` () =
         Day2.part2 ()
         |> shouldEqual 321

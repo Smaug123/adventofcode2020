@@ -1,5 +1,7 @@
 namespace AdventOfCode
 
+open System.IO
+open System.Reflection
 open AdventOfCode.Internals
 
 [<RequireQualifiedAccess>]
@@ -63,3 +65,70 @@ module Day2 =
         |> Seq.filter (fun (p, s) -> isMatch2 p s)
         |> Seq.length
 
+
+[<RequireQualifiedAccess>]
+module Day2StateMachine =
+    [<Struct>]
+    type State =
+        | Min of soFar : byte
+        | Max of min' : byte * maxSoFar : byte
+        | Seeking of min : byte * max : byte * seeking : char * count : byte
+
+    let private chrToByte (c : char) : byte =
+        match c with
+        | '0' -> 0uy
+        | '1' -> 1uy
+        | '2' -> 2uy
+        | '3' -> 3uy
+        | '4' -> 4uy
+        | '5' -> 5uy
+        | '6' -> 6uy
+        | '7' -> 7uy
+        | '8' -> 8uy
+        | '9' -> 9uy
+        | _ -> failwith "oh no"
+
+    let rec go (input : string) (passingCount : int) (s : State) (pos : int) : int =
+        // Example:
+        //1-4 m: mrfmmbjxr
+        match s with
+        | Min i ->
+            // Consuming characters from the start.
+            if input.[pos] = '-' then
+                go input passingCount (Max (i, 0uy)) (pos + 1)
+            else
+                go input passingCount (Min (10uy * i + chrToByte (input.[pos]))) (pos + 1)
+        | Max (min, max) ->
+            // Consuming characters from the middle, the "4" in the example
+            if input.[pos] = ' ' then
+                go input passingCount (Seeking (min, max, input.[pos + 1], 0uy)) (pos + 4)
+            else
+                go input passingCount (Max (min, 10uy * max + chrToByte (input.[pos]))) (pos + 1)
+        | Seeking (min, max, seek, count) ->
+            if pos >= input.Length then
+                if (min <= count) = (count <= max) then passingCount + 1 else passingCount
+            else
+            match input.[pos] with
+            | '\r' ->
+                // End of example.
+                if (min <= count) <> (count <= max) then
+                    // Assume \r\n, hence +2
+                    go input (passingCount + 1) (Min 0uy) (pos + 2)
+                else
+                    go input passingCount (Min 0uy) (pos + 2)
+            | '\n' ->
+                if (min <= count) = (count <= max) then
+                    go input (passingCount + 1) (Min 0uy) (pos + 1)
+                else
+                    go input passingCount (Min 0uy) (pos + 1)
+            | x when x = seek ->
+                go input passingCount (Seeking (min, max, seek, count + 1uy)) (pos + 1)
+            | _ ->
+                go input passingCount (Seeking (min, max, seek, count)) (pos + 1)
+
+    let part1 () =
+        let asm = Assembly.GetAssembly typeof<State>
+        use stream = asm.GetManifestResourceStream "AdventOfCode.Day2Input.txt"
+        use reader = new StreamReader(stream)
+        let s = reader.ReadToEnd ()
+        go s 0 (Min 0uy) 0
