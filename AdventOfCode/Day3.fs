@@ -32,8 +32,8 @@ module Day3 =
             Count : int
         }
 
-    // This is expressed rather unnaturally as a fold, thanks to me bolting on the Day 2 functionality after completing
-    // Day 1. Really it would be more naturally a loop where we updated the position until one coordinate became too
+    // This is expressed rather unnaturally as a fold, thanks to me bolting on the Part 2 functionality after completing
+    // Part 1. Really it would be more naturally a loop where we updated the position until one coordinate became too
     // big, rather than a fold over the rows where we skip some rows.
     let countTrees (right : int) (down : int) (Board b) =
         let len = b.[0].Length
