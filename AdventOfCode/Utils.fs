@@ -11,10 +11,29 @@ module Utils =
     let readResource (name : string) : string list =
         let asm = Assembly.GetAssembly typeof<Dummy>
         use stream = asm.GetManifestResourceStream (sprintf "AdventOfCode.%s" name)
-        use reader = new StreamReader(stream)
-        reader.ReadToEnd().Split('\r', '\n')
+        let s =
+            use reader = new StreamReader(stream)
+            reader.ReadToEnd()
+        s.Split('\r', '\n')
         |> List.ofArray
-        |> List.filter (String.IsNullOrEmpty >> not)
+
+/// This should be in the standard library.
+type ResultBuilder () =
+    member __.MergeSources<'a, 'b, 'err> (a : Result<'a, 'err list>, b : Result<'b, 'err list>) : Result<'a * 'b, 'err list> =
+        match a, b with
+        | Ok a, Ok b -> Ok (a, b)
+        | Error e, Ok _
+        | Ok _, Error e -> Error e
+        | Error e1, Error e2 -> Error (e1 @ e2)
+
+    member __.BindReturn<'a, 'b, 'err> (a : Result<'a, 'err>, f : 'a -> 'b) : Result<'b, 'err> =
+        match a with
+        | Ok a -> Ok (f a)
+        | Error e -> Error e
+
+[<AutoOpen>]
+module Builders =
+    let result<'a, 'b, 'err> = ResultBuilder()
 
 [<RequireQualifiedAccess>]
 module Result =
