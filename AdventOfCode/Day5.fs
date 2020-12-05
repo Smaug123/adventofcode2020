@@ -32,6 +32,6 @@ module Day5 =
         seats ()
         |> Seq.sortDescending
         |> Seq.pairwise
-        |> Seq.filter (fun (a, b) -> a + 2 = b)
+        |> Seq.filter (fun (a, b) -> b + 2 = a)
         |> Seq.head
-        |> fun (a, _) -> a + 1
+        |> fun (a, _) -> a - 1
