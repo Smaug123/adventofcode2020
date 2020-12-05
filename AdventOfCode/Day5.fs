@@ -7,9 +7,7 @@ module Day5 =
 
     let interpretBase2 (i : bool seq) : int =
         i
-        |> Seq.fold (fun s x ->
-            if x then 2 * s + 1 else 2 * s
-        ) 0
+        |> Seq.fold (fun s x -> if x then 2 * s + 1 else 2 * s) 0
 
     let seats () =
         Utils.readResource "Day5Input.txt"
@@ -32,8 +30,8 @@ module Day5 =
 
     let part2 () =
         seats ()
-        |> Seq.sort
+        |> Seq.sortDescending
         |> Seq.pairwise
         |> Seq.filter (fun (a, b) -> a + 2 = b)
-        |> Seq.last
+        |> Seq.head
         |> fun (a, _) -> a + 1
