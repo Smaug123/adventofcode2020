@@ -17,6 +17,21 @@ module Utils =
         s.Split('\r', '\n')
         |> List.ofArray
 
+    let splitAt (f : 'a -> bool) (x : 'a seq) : 'a list seq =
+        seq {
+            use i = x.GetEnumerator ()
+            let mutable soFar = ResizeArray ()
+            while i.MoveNext () do
+                if f i.Current then
+                    yield List.ofSeq soFar
+                    soFar.Clear ()
+                else
+                    soFar.Add i.Current
+
+            if soFar.Count > 0 then
+                yield List.ofSeq soFar
+        }
+
 /// This should be in the standard library.
 type ResultBuilder () =
     member __.MergeSources<'a, 'b, 'err> (a : Result<'a, 'err list>, b : Result<'b, 'err list>) : Result<'a * 'b, 'err list> =

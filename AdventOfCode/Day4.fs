@@ -10,15 +10,6 @@ open AdventOfCode.Internals
 [<RequireQualifiedAccess>]
 module Day4 =
 
-    let rec splitAt (f : 'a -> bool) (x : 'a list) : 'a list list =
-        match x with
-        | [] -> []
-        | x :: xs when f x -> [] :: splitAt f xs
-        | x :: xs ->
-            match splitAt f xs with
-            | [] -> [[x]]
-            | sub :: subs -> (x :: sub) :: subs
-
     type PassportId =
         private
         | PassportId of string
@@ -183,14 +174,14 @@ module Day4 =
     let private get () =
         let split =
             Utils.readResource "Day4Input.txt"
-            |> splitAt ((=) "")
+            |> Utils.splitAt ((=) "")
         split
-        |> List.map (Seq.collect (fun i -> i.Split ()))
-        |> List.map tryParse
+        |> Seq.map (Seq.collect (fun i -> i.Split ()))
+        |> Seq.map tryParse
 
     let part1 () =
         get ()
-        |> List.sumBy (
+        |> Seq.sumBy (
             function
             | Ok _ -> 1
             | Error errors ->
@@ -204,5 +195,5 @@ module Day4 =
 
     let part2 () =
         get ()
-        |> List.sumBy (function | Ok _ -> 1 | Error _ -> 0)
+        |> Seq.sumBy (function | Ok _ -> 1 | Error _ -> 0)
 
