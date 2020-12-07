@@ -32,6 +32,18 @@ module Utils =
                 yield List.ofSeq soFar
         }
 
+    let fixedPoint<'a when 'a : equality> (f : 'a -> 'a) (start : 'a) : 'a =
+        seq {
+            let mutable a1 = start
+            let mutable a2 = f start
+            yield a1
+            while a1 <> a2 do
+                yield a2
+                a1 <- a2
+                a2 <- f a2
+        }
+        |> Seq.last
+
 /// This should be in the standard library.
 type ResultBuilder () =
     member __.MergeSources<'a, 'b, 'err> (a : Result<'a, 'err list>, b : Result<'b, 'err list>) : Result<'a * 'b, 'err list> =

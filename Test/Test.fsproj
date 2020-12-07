@@ -13,6 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="TestUtils.fs" />
         <Compile Include="TestDay1.fs" />
         <Compile Include="TestDay2.fs" />
         <Compile Include="TestDay3.fs" />

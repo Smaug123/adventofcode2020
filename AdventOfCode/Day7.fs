@@ -7,75 +7,28 @@ open System.Collections.Generic
 [<RequireQualifiedAccess>]
 module Day7 =
 
-    let fixedPoint<'a when 'a : equality> (f : 'a -> 'a) (start : 'a) : 'a =
-        seq {
-            let mutable a1 = start
-            let mutable a2 = f start
-            yield a1
-            while a1 <> a2 do
-                yield a2
-                a1 <- a2
-                a2 <- f a2
-        }
-        |> Seq.last
-
     type Colour = Colour of string
 
-    type Rule =
-        {
-            Type : Colour
-            Contains : Map<Colour, int>
-        }
-
-        static member Parse (s : string) : Rule =
-            // e.g. shiny red bags contain 1 posh olive bag, 1 vibrant green bag, 4 muted purple bags.
-            match s.Split " bags contain " with
-            | [| colour ; rest |] ->
-                {
-                    Type = Colour colour
-                    Contains =
-                        if rest = "no other bags." then Map.empty else
-                        rest.Split ", "
-                        |> Seq.map (fun s ->
-                            let firstSpace = s.IndexOf ' '
-                            let num =
-                                match Int32.TryParse s.[0..firstSpace] with
-                                | true, v -> v
-                                | false, _ ->
-                                    failwithf "Failed to parse '%s' as an int." s.[0..firstSpace]
-                            let lastSpace = s.LastIndexOf ' '
-                            let colour = s.[firstSpace + 1..lastSpace - 1]
-                            (Colour colour, num)
-                        )
-                        |> Map.ofSeq
-                }
-            | _ -> failwithf "Could not parse: %s" s
-
-    let part1 () =
-        let bags =
-            Utils.readResource "Day7Input.txt"
-            |> List.map Rule.Parse
-
-        do
-            let colours =
-                bags
-                |> List.map (fun i -> i.Type)
-            let distincted = colours |> Set.ofList
-            assert (List.length colours = Set.count distincted)
-
-        let rec go (required : Colour) (canContain : Colour Set) (rules : Rule list) : Colour Set =
-            match rules with
-            | [] -> canContain
-            | rule :: rules ->
-                let canContain =
-                    if Map.exists (fun colour _ -> colour = required || Set.contains colour canContain) rule.Contains then
-                        Set.add rule.Type canContain
-                    else canContain
-
-                go required canContain rules
-
-        fixedPoint (fun s -> go (Colour "shiny gold") s bags) Set.empty
-        |> Set.count
+    /// Parse a single line of puzzle input.
+    let parse (s : string) : Colour * Map<Colour, int> =
+        match s.Split " bags contain " with
+        | [| colour ; rest |] ->
+            Colour colour,
+            if rest = "no other bags." then Map.empty else
+            rest.Split ", "
+            |> Seq.map (fun s ->
+                let firstSpace = s.IndexOf ' '
+                let num =
+                    match Int32.TryParse s.[0..firstSpace] with
+                    | true, v -> v
+                    | false, _ ->
+                        failwithf "Failed to parse '%s' as an int." s.[0..firstSpace]
+                let lastSpace = s.LastIndexOf ' '
+                let colour = s.[firstSpace + 1..lastSpace - 1]
+                (Colour colour, num)
+            )
+            |> Map.ofSeq
+        | _ -> failwithf "Could not parse: %s" s
 
     type Tree =
         {
@@ -83,84 +36,124 @@ module Day7 =
             Children : (int * Tree) list
         }
 
-    /// Construct the trees represented by the given rule set.
-    /// We maintain a stack of not-yet-constructed nodes, represented as notConstructed.
-    /// When we encounter a node, we check whether all its children have been constructed; the ones which have not, we
-    /// push onto the stack.
-    let rec private go (allRules : Map<Colour, Map<Colour, int>>) (notConstructed : Colour list) (soFar : Map<Colour, Tree>) : Map<Colour, Tree> =
-        match notConstructed with
-        | [] ->
-            // Work queue consumed, no more work to do
-            soFar
-        | colour :: notConstructed ->
+    /// A mutable object allowing memoisation in an invocation of a cata, or across invocations.
+    type CataStore<'ret> =
+        private
+        | CataStore of Dictionary<Colour, 'ret>
 
-        match soFar.TryFind colour with
-        | Some _ ->
-            // We've already done the work for this colour. Ignore the work implied by it.
-            go allRules notConstructed soFar
-        | None ->
+    [<RequireQualifiedAccess>]
+    module CataStore =
+        let make<'ret> () : CataStore<'ret> = CataStore (Dictionary ())
 
-        // We haven't yet done the work. Iterate over the children, checking whether we've done the work for them;
-        // for each child not yet done, add it to the queue.
-        let changed, built, notConstructed =
-            allRules.[colour]
-            |> Map.fold (fun (changed, built, notConstructed) colour count ->
-                match soFar.TryFind colour with
-                | Some tree ->
-                    changed, (count, tree) :: built, notConstructed
-                | None ->
-                true, built, (colour :: notConstructed)
-            ) (false, [], colour :: notConstructed)
+    [<RequireQualifiedAccess>]
+    module Tree =
 
-        if changed then
-            // At least one child has had work pushed onto `notConstructed`.
-            go allRules notConstructed soFar
+        /// Construct the trees represented by the given rule set.
+        /// We maintain a stack of not-yet-constructed nodes, represented as notConstructed.
+        /// When we encounter a node, we check whether all its children have been constructed; the ones which have not, we
+        /// push onto the stack.
+        let rec private go (allRules : Map<Colour, Map<Colour, int>>) (notConstructed : Colour list) (soFar : Map<Colour, Tree>) : Map<Colour, Tree> =
+            match notConstructed with
+            | [] ->
+                // Work queue consumed, no more work to do
+                soFar
+            | colour :: notConstructed ->
 
-        else
+            match soFar.TryFind colour with
+            | Some _ ->
+                // We've already done the work for this colour. Ignore the work implied by it.
+                go allRules notConstructed soFar
+            | None ->
 
-        // All the children have already been constructed.
-        let subtree =
-            {
-                Colour = colour
-                Children = built
-            }
+            // We haven't yet done the work. Iterate over the children, checking whether we've done the work for them;
+            // for each child not yet done, add it to the queue.
+            let changed, built, notConstructed =
+                allRules.[colour]
+                |> Map.fold (fun (changed, built, notConstructed) colour count ->
+                    match soFar.TryFind colour with
+                    | Some tree ->
+                        changed, (count, tree) :: built, notConstructed
+                    | None ->
+                    true, built, (colour :: notConstructed)
+                ) (false, [], colour :: notConstructed)
 
-        Map.add colour subtree soFar
-        |> go allRules notConstructed
+            if changed then
+                // At least one child has had work pushed onto `notConstructed`.
+                go allRules notConstructed soFar
 
-    let ofRules (colour : Colour) (rules : Map<Colour, Map<Colour, int>>) : Tree =
-        go rules [colour] Map.empty
-        |> Map.find colour
+            else
 
-    let cata<'ret> (b : Colour -> (int * 'ret) list -> 'ret) (t : Tree) : 'ret =
-        let memoize = Dictionary ()
-        let rec go (t : Tree) =
-            match memoize.TryGetValue t.Colour with
-            | true, v -> v
-            | false, _ ->
-                let result =
-                    t.Children
-                    |> List.map (fun (count, tree) ->
-                        let ret = go tree
-                        count, ret
-                    )
-                    |> b t.Colour
-                memoize.[t.Colour] <- result
-                result
+            // All the children have already been constructed.
+            let subtree =
+                {
+                    Colour = colour
+                    Children = built
+                }
 
-        go t
+            Map.add colour subtree soFar
+            |> go allRules notConstructed
+
+        /// Construct trees for each of the input colours, given the global set of rules defining every tree.
+        /// Trees are shared wherever possible.
+        let ofRules (colours : Colour list) (rules : Map<Colour, Map<Colour, int>>) : Map<Colour, Tree> =
+            let output = go rules colours Map.empty
+            let colours = Set.ofList colours
+            output
+            |> Map.filter (fun colour _ -> colours.Contains colour)
+
+        /// Warning: be careful which CataStore you pass into this function. We'll protect you at the type level only
+        /// from using incompatible return types; we can't stop you reusing a store from a cata that was computing
+        /// something different.
+        let cata'<'ret> ((CataStore store) : CataStore<'ret>) (b : Colour -> (int * 'ret) list -> 'ret) (t : Tree) : 'ret =
+            let rec go (t : Tree) =
+                match store.TryGetValue t.Colour with
+                | true, v -> v
+                | false, _ ->
+                    let result =
+                        t.Children
+                        |> List.map (fun (count, tree) ->
+                            let ret = go tree
+                            count, ret
+                        )
+                        |> b t.Colour
+                    store.[t.Colour] <- result
+                    result
+
+            go t
+
+        let cata<'ret> (b : Colour -> (int * 'ret) list -> 'ret) (t : Tree) : 'ret =
+            cata'<'ret> (CataStore.make<'ret> ()) b t
+
+    let part1 () =
+        let rules =
+            Utils.readResource "Day7Input.txt"
+            |> List.map parse
+            |> Map.ofList
+
+        let cataStore = CataStore.make ()
+
+        rules
+        |> Tree.ofRules (rules |> Map.toSeq |> Seq.map fst |> List.ofSeq)
+        |> Map.map (fun _ ->
+            Tree.cata' cataStore (fun colour counts ->
+                if colour = Colour "shiny gold" then 1
+                elif counts |> Seq.map snd |> Seq.contains 1 then 1
+                else 0
+            )
+        )
+        |> Map.toSeq
+        |> Seq.sumBy snd
+        |> fun c -> c - 1 // the shiny gold bag can't contain itself
 
     let part2 () : int =
         Utils.readResource "Day7Input.txt"
-        |> List.map Rule.Parse
-        |> List.map (fun i -> i.Type, i.Contains)
+        |> List.map parse
         |> Map.ofList
-        |> ofRules (Colour "shiny gold")
-        |> cata<int> (fun _ counts ->
+        |> Tree.ofRules [Colour "shiny gold"]
+        |> fun i -> i.[Colour "shiny gold"]
+        |> Tree.cata<int> (fun _ counts ->
             counts
-            |> List.map (fun (i, j) -> i * j)
-            |> List.sum
+            |> List.sumBy (fun (i, j) -> i * j)
             |> (+) 1 // for the node itself
         )
         |> fun c -> c - 1 // because the outermost bag doesn't count
-
