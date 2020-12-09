@@ -19,16 +19,14 @@ module Day9 =
     [<RequireQualifiedAccess>]
     module AvailableSums =
 
-        /// Couldn't get statically resolved type parameters and a (+) constraint to work straight away, so just
-        /// did it old-school
-        let create<'a> (plus : 'a -> 'a -> 'a) (preamble : 'a seq) (n : int) : AvailableSums<'a> =
+        let inline create (preamble : ^a seq) (n : int) : AvailableSums< ^a> =
             let preamble = Seq.toArray preamble
 
             let buffer = [| for _ in 0..n-1 do yield Array.zeroCreate n |]
             for i in 0..n-1 do
                 let whichBuffer = buffer.[i]
                 for j in 0..(n - i - 1) do
-                    whichBuffer.[j] <- plus (preamble.[i]) (preamble.[(j + i) % n])
+                    whichBuffer.[j] <- preamble.[i] + preamble.[(j + i) % n]
 
             {
                 Modulus = n
@@ -49,10 +47,11 @@ module Day9 =
             }
 
         /// Incorporate the next number in the stream, discarding the initial one.
-        let advance (plus : 'a -> 'a -> 'a) (i : 'a) (s : AvailableSums<'a>) : unit =
+        let inline advance (i : ^a) (s : AvailableSums< ^a>) : unit =
             s.Numbers.[s.Ptr] <- i
             for count in 0..s.Modulus - 1 do
-                s.Buffer.[(s.Ptr + count) % s.Modulus].[(s.Modulus - count) % s.Modulus] <- plus i s.Numbers.[(s.Ptr + count) % s.Modulus]
+                s.Buffer.[(s.Ptr + count) % s.Modulus].[(s.Modulus - count) % s.Modulus] <-
+                    i + s.Numbers.[(s.Ptr + count) % s.Modulus]
             s.Ptr <- (s.Ptr + 1) % s.Modulus
 
         let isAvailable (i : 'a) (s : AvailableSums<'a>) : bool =
@@ -63,13 +62,13 @@ module Day9 =
         let numbers =
             Utils.readResource "Day9Input.txt"
             |> List.map int64
-        let available = AvailableSums.create<int64> (+) numbers.[0..24] 25
+        let available = AvailableSums.create numbers.[0..24] 25
         let rec go (rest : int64 list) =
             match rest with
             | [] -> failwith "Hit the end"
             | r :: rest ->
                 if AvailableSums.isAvailable r available then
-                    AvailableSums.advance (+) r available
+                    AvailableSums.advance r available
                     go rest
                 else
                     r
@@ -84,19 +83,22 @@ module Day9 =
 
         assert(numbers |> Array.forall (fun i -> i >= 0L))
 
-        let rec go (target : int64) (ptr : int) =
-            if ptr >= numbers.Length then failwith "hit the end"
-            let rec go2 (sum : int64) (endPoint : int) =
-                if endPoint >= numbers.Length then None else
-                let sum = sum + numbers.[endPoint]
-                if sum = target then Some endPoint else
-                go2 sum (endPoint + 1)
+        let rec go' (target : int64) (current : int64) (start : int) (endPtr : int) =
+            if current < target then go target current start endPtr
+            elif current = target then Some (start, endPtr)
+            else go' target (current - numbers.[start]) (start + 1) endPtr
 
-            match go2 0L ptr with
-            | None -> go target (ptr + 1)
-            | Some endPoint -> (ptr, endPoint)
+        and go (target : int64) (current : int64) (start : int) (endPtr : int) =
+            if endPtr = numbers.Length - 1 then None else
 
-        let start, endPoint = go badNumber 0
+            // Advance endPtr and see if we've gone too big
+            let nextTry = current + numbers.[endPtr + 1]
+            if nextTry < target then go target nextTry start (endPtr + 1)
+            elif nextTry = target then Some (start, endPtr)
+            else
+                go' target (current - numbers.[start]) (start + 1) endPtr
+
+        let start, endPoint = go badNumber 0L 0 -1 |> Option.get
         match Seq.tryMinAndMax numbers.[start..endPoint] with
         | None -> failwith "empty seq"
         | Some (min, max) -> max + min

@@ -9,7 +9,7 @@ module TestDay9 =
 
     [<Test>]
     let ``Test availableSums advancement`` () =
-        let available = Day9.AvailableSums.create (+) [ 30 ; 20 ; 15 ; 25 ; 47 ] 5
+        let available = Day9.AvailableSums.create [ 30 ; 20 ; 15 ; 25 ; 47 ] 5
         available.Modulus |> shouldEqual 5
         available.Ptr |> shouldEqual 0
         available.Buffer
@@ -26,7 +26,7 @@ module TestDay9 =
                 [| 94 ; 0 ; 0 ; 0 ; 0 |]
             |]
 
-        Day9.AvailableSums.advance (+) 40 available
+        Day9.AvailableSums.advance 40 available
 
         available.Modulus |> shouldEqual 5
         available.Ptr |> shouldEqual 1
@@ -45,7 +45,7 @@ module TestDay9 =
                 [| 94 ; 87 ; 0 ; 0 ; 0 |]
             |]
 
-        Day9.AvailableSums.advance (+) 62 available
+        Day9.AvailableSums.advance 62 available
 
         available.Modulus |> shouldEqual 5
         available.Ptr |> shouldEqual 2
@@ -66,10 +66,10 @@ module TestDay9 =
 
     [<Test>]
     let ``Test availableSums toSeq`` () =
-        let available = Day9.AvailableSums.create (+) [ 30 ; 20 ; 15 ; 25 ; 47 ] 5
+        let available = Day9.AvailableSums.create [ 30 ; 20 ; 15 ; 25 ; 47 ] 5
 
-        Day9.AvailableSums.advance (+) 40 available
-        Day9.AvailableSums.advance (+) 62 available
+        Day9.AvailableSums.advance 40 available
+        Day9.AvailableSums.advance 62 available
 
         Day9.AvailableSums.toSeq available
         |> List.ofSeq
