@@ -174,7 +174,7 @@ module Day4 =
     let private get () =
         let split =
             Utils.readResource "Day4Input.txt"
-            |> Utils.splitAt ((=) "")
+            |> Seq.splitAt ((=) "")
         split
         |> Seq.map (Seq.collect (fun i -> i.Split ()))
         |> Seq.map tryParse
