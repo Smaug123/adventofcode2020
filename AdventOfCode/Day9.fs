@@ -51,8 +51,8 @@ module Day9 =
         /// Incorporate the next number in the stream, discarding the initial one.
         let advance (plus : 'a -> 'a -> 'a) (i : 'a) (s : AvailableSums<'a>) : unit =
             s.Numbers.[s.Ptr] <- i
-            for count in 1..s.Modulus do
-                s.Buffer.[(s.Ptr + count - 1) % s.Modulus].[(s.Modulus - count + 1) % s.Modulus] <- plus i s.Numbers.[(s.Ptr + count - 1) % s.Modulus]
+            for count in 0..s.Modulus - 1 do
+                s.Buffer.[(s.Ptr + count) % s.Modulus].[(s.Modulus - count) % s.Modulus] <- plus i s.Numbers.[(s.Ptr + count) % s.Modulus]
             s.Ptr <- (s.Ptr + 1) % s.Modulus
 
         let isAvailable (i : 'a) (s : AvailableSums<'a>) : bool =
