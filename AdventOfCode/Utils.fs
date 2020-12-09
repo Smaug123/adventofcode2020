@@ -17,6 +17,32 @@ module Utils =
         s.Split('\r', '\n')
         |> List.ofArray
 
+    let fixedPoint<'a when 'a : equality> (f : 'a -> 'a) (start : 'a) : 'a =
+        seq {
+            let mutable a1 = start
+            let mutable a2 = f start
+            yield a1
+            while a1 <> a2 do
+                yield a2
+                a1 <- a2
+                a2 <- f a2
+        }
+        |> Seq.last
+
+[<RequireQualifiedAccess>]
+module Seq =
+
+    let tryMinAndMax<'a when 'a : comparison> (s : 'a seq) : ('a * 'a) option =
+        use s = s.GetEnumerator ()
+        if not <| s.MoveNext () then None else
+        let mutable min = s.Current
+        let mutable max = s.Current
+        while s.MoveNext () do
+            if s.Current < min then min <- s.Current else
+            if s.Current > max then max <- s.Current
+
+        Some (min, max)
+
     let splitAt (f : 'a -> bool) (x : 'a seq) : 'a list seq =
         seq {
             use i = x.GetEnumerator ()
@@ -31,18 +57,6 @@ module Utils =
             if soFar.Count > 0 then
                 yield List.ofSeq soFar
         }
-
-    let fixedPoint<'a when 'a : equality> (f : 'a -> 'a) (start : 'a) : 'a =
-        seq {
-            let mutable a1 = start
-            let mutable a2 = f start
-            yield a1
-            while a1 <> a2 do
-                yield a2
-                a1 <- a2
-                a2 <- f a2
-        }
-        |> Seq.last
 
 /// This should be in the standard library.
 type ResultBuilder () =

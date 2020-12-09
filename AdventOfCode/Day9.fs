@@ -75,17 +75,6 @@ module Day9 =
                     r
         go numbers.[25..]
 
-    let tryMinAndMax<'a when 'a : comparison> (s : 'a seq) : ('a * 'a) option =
-        use s = s.GetEnumerator ()
-        if not <| s.MoveNext () then None else
-        let mutable min = s.Current
-        let mutable max = s.Current
-        while s.MoveNext () do
-            if s.Current < min then min <- s.Current else
-            if s.Current > max then max <- s.Current
-
-        Some (min, max)
-
     let part2 () =
         let badNumber = part1 ()
         let numbers =
@@ -108,6 +97,6 @@ module Day9 =
             | Some endPoint -> (ptr, endPoint)
 
         let start, endPoint = go badNumber 0
-        match tryMinAndMax numbers.[start..endPoint] with
+        match Seq.tryMinAndMax numbers.[start..endPoint] with
         | None -> failwith "empty seq"
         | Some (min, max) -> max + min
