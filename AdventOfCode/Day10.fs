@@ -34,68 +34,56 @@ module Day10 =
         assert (results |> Map.toSeq |> Seq.map fst |> Set.ofSeq = Set.ofList [1 ; 3])
         (results.[3] + 1) * (results.[1] + 1)
 
-    /// Key insights that make this dumb solution work:
-    /// * if we ever see n, n+3, then we can split the problem up at that point; both n and n+3 must be present.
-    /// * since there is no difference of 2 in the list, we only need to care about the length of a run, not the numbers
-    ///   in it.
+    let rec permissible (cache : Map<int, int64>) (l : int) : Map<int, int64> * int64 =
+        if l < 3 then
+            // Since the first and last elements must remain fixed, we can't do anything different.
+            cache, 1L
+        elif l = 3 then
+            // We can choose freely to drop the middle element.
+            cache, 2L
+        else
+
+        match cache.TryFind l with
+        | Some v -> cache, v
+        | None ->
+            // The answer is generated either by saying the second element will stay...
+            let cache, m1 = permissible cache (l - 1)
+            // or by saying the second element is dropped but the third element will stay...
+            let cache, m2 = permissible cache (l - 2)
+            // or by saying the second and third elements are dropped but the fourth element will stay.
+            let cache, m3 = permissible cache (l - 3)
+            // Nothing else is possible, because we introduce a gap of more than 3 if we drop any more elements.
+
+            cache, m1 + m2 + m3
+
+    /// Iterate through the seq determining the successive counts between which f becomes true.
+    /// For example, [1;2;4;7;8] and (fun x y -> y - x = 3) outputs [3;2].
+    let runs<'a> (f : 'a -> 'a -> bool) (xs : 'a seq) : int seq =
+        seq {
+            use xs = xs.GetEnumerator ()
+            if not (xs.MoveNext ()) then () else
+            let mutable prev = xs.Current
+            let mutable i = 1
+            while (xs.MoveNext ()) do
+                if f prev xs.Current then
+                    yield i
+                    i <- 1
+                else
+                    i <- i + 1
+                prev <- xs.Current
+
+            yield i
+        }
+
     let part2 () : int64 =
-        let numbers =
-            Utils.readResource "Day10Input.txt"
-            |> List.map int
-            |> List.sort
-
-        /// Split across boundaries with a difference of 3.
-        /// For example, [1;2;4;7;8] -> [[1;2;4];[7;8]].
-        let rec split (xs : int list) : int list list =
-            match xs with
-            | [] -> [[]]
-            | [x] -> [[x]]
-            | x :: y :: rest ->
-                match split (y :: rest) with
-                | [] -> failwith "logic error"
-                | fst :: rest ->
-                    if y - x = 3 then [x] :: fst :: rest else (x :: fst) :: rest
-
-        let isValid (l : int list) : bool =
-            Set.isSubset (Set.ofSeq (differences l)) (Set.ofList [1 ; 2 ; 3])
-
-        /// All ordered subsets of elements of the input list.
-        /// This is, of course, exponential in time and space.
-        let rec subLists (l : 'a list) : 'a list list =
-            match l with
-            | [] -> [[]]
-            | x :: xs ->
-                subLists xs
-                |> List.collect (fun l -> [l ; x :: l])
-
-        /// Hilariously inefficient computation of the Part 2 answer for a given sequence.
-        let bruteForce (l : int list) : int64 =
-            match l with
-            | [] -> 1L
-            | [_] -> 1L
-            | [_ ; _] -> 1L
-            | l ->
-                let fst = l.[0]
-                let last = l.[l.Length - 1]
-                l.[1..l.Length - 2]
-                |> subLists
-                |> List.filter (fun l -> isValid (fst :: l @ [last]))
-                |> List.length
-                |> int64
-
-        /// Memoise the result of `bruteForce`, since only the length in a consecutive run matters.
-        let computeRun (cache : Map<int, int64>) (l : int list) : Map<int, int64> * int64 =
-            let len = List.length l
-            match Map.tryFind len cache with
-            | Some v -> cache, v
-            | None ->
-                let result = bruteForce l
-                Map.add len result cache, result
-
-        split (0 :: numbers @ [numbers.[numbers.Length - 1] + 3])
-        |> List.fold (fun (cache, soFar) next ->
-            let cache, result = computeRun cache next
-            printfn "%A" result
-            cache, soFar * result
-        ) (Map.empty, 1L)
+        Utils.readResource "Day10Input.txt"
+        |> List.map int
+        |> List.sort
+        |> runs (fun x y -> y - x = 3)
+        // there is an implicit gap of 3 on the end, i.e. an implicit 1 appended to `runs`, so we need to start the
+        // following fold from 2L instead of 1L
+        |> Seq.fold (fun (cache, total) i ->
+            let cache, toMul = permissible cache i
+            cache, toMul * total
+        ) (Map.empty, 2L)
         |> snd
