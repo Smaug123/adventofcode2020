@@ -56,6 +56,10 @@ module Day10 =
 
             cache, m1 + m2 + m3
 
+    // As an aside, a little fiddling with generating functions shows that `permissible n` is the nth coefficient
+    // in the series expansion of 1/(1-x-x^2-x^3), or (1-x)/(1-2x+x^4).
+    // If you really want to, and you're capable of exponentiating complex numbers, you can get this in constant time.
+
     /// Iterate through the seq determining the successive counts between which f becomes true.
     /// For example, [1;2;4;7;8] and (fun x y -> y - x = 3) outputs [3;2].
     let runs<'a> (f : 'a -> 'a -> bool) (xs : 'a seq) : int seq =
