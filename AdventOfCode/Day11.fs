@@ -152,24 +152,3 @@ module Day11 =
         seats
         |> Array.map (Array.sumBy (function | Occupied -> 1 | _ -> 0))
         |> Array.sum
-
-module Program =
-    [<EntryPoint>]
-    let main _ =
-        let board =
-            [
-                "L.LL.LL.LL"
-                "LLLLLLL.LL"
-                "L.L.L..L.."
-                "LLLL.LL.LL"
-                "L.LL.LL.LL"
-                "L.LLLLL.LL"
-                "..L.L....."
-                "LLLLLLLLLL"
-                "L.LLLLLL.L"
-                "L.LLLLL.LL"
-            ]
-            |> List.map (Seq.map Day11.Status.Parse >> Array.ofSeq)
-            |> Array.ofList
-        printfn "%i" (Day11.part2 board)
-        0
