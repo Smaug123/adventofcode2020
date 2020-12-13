@@ -83,3 +83,40 @@ module Result =
         match r with
         | Ok i -> i
         | Error f -> failwithf "Assertion failure: result was error: %+A" f
+
+[<RequireQualifiedAccess>]
+module Int =
+    let inline sqrt (i : ^a) =
+        if i <= LanguagePrimitives.GenericOne then i else
+        let rec go start =
+            let next = start + LanguagePrimitives.GenericOne
+            let sqr = next * next
+            if sqr < LanguagePrimitives.GenericZero then
+                // Overflow attempted, so the sqrt is between start and next
+                start
+            elif i < sqr then
+                start
+            elif i = sqr then next
+            else go next
+        go LanguagePrimitives.GenericOne
+
+    let inline isPrime i =
+        if i <= LanguagePrimitives.GenericOne then false else
+        seq {
+            for j in (LanguagePrimitives.GenericOne + LanguagePrimitives.GenericOne)..sqrt i do
+                if i % j = LanguagePrimitives.GenericZero then yield false
+            yield true
+        }
+        |> Seq.head
+
+    /// Find Hcf, A, B s.t. A * a + B * b = Hcf, and Hcf is the highest common factor of a and b.
+    let inline euclideanAlgorithm (a : ^a) (b : ^a) : {| Hcf : ^a ; A : ^a ; B : ^a |} =
+        let rec go rMin1 r sMin1 s tMin1 t =
+            if r = LanguagePrimitives.GenericZero then {| Hcf = rMin1 ; A = sMin1 ; B = tMin1 |} else
+            let newQ = rMin1 / r
+            go r (rMin1 - newQ * r) s (sMin1 - newQ * s) t (tMin1 - newQ * t)
+
+        let maxA = max a b
+        let minB = min a b
+        let result = go maxA minB LanguagePrimitives.GenericOne LanguagePrimitives.GenericZero LanguagePrimitives.GenericZero LanguagePrimitives.GenericOne
+        if a = maxA then result else {| Hcf = result.Hcf ; A = result.B ; B = result.A |}

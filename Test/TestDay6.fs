@@ -14,4 +14,3 @@ module TestDay6 =
     [<Test>]
     let ``Test part 2`` () =
         Day6.part2 () |> shouldEqual 3550
-

@@ -93,5 +93,3 @@ module TestDay9 =
     [<Test>]
     let ``Test part 2`` () =
         Day9.part2 (Day9.numbers ()) |> shouldEqual 51152360L
-
-

@@ -14,5 +14,3 @@ module TestDay8 =
     [<Test>]
     let ``Test part 2`` () =
         Day8.part2 () |> shouldEqual 2477<Day8.Accumulated>
-
-

@@ -16,6 +16,3 @@ module TestDay12 =
     let ``Part 2`` () =
         Day12.part2 ()
         |> shouldEqual 41212<Day12.units>
-
-
-

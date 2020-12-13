@@ -29,4 +29,3 @@ module TestDay7 =
     [<Test>]
     let ``Test part 2`` () =
         Day7.part2 () |> shouldEqual 58175
-

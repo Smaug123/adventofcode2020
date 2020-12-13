@@ -17,5 +17,3 @@ module TestDay11 =
         let board = Day11.board ()
         Day11.part2 board
         |> shouldEqual 2285
-
-
