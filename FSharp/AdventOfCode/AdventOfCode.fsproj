@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="../../Inputs/Day1Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day2Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day3Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day4Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day5Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day6Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day7Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day8Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day9Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day10Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day11Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day12Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day13Input.txt" />
+        <Compile Include="Utils.fs" />
+        <Compile Include="Day1.fs" />
+        <Compile Include="Day2.fs" />
+        <Compile Include="Day3.fs" />
+        <Compile Include="Day4.fs" />
+        <Compile Include="Day5.fs" />
+        <Compile Include="Day6.fs" />
+        <Compile Include="Day7.fs" />
+        <Compile Include="Day8.fs" />
+        <Compile Include="Day9.fs" />
+        <Compile Include="Day10.fs" />
+        <Compile Include="Day11.fs" />
+        <Compile Include="Day12.fs" />
+        <Compile Include="Day13.fs" />
+    </ItemGroup>
+
+</Project>
