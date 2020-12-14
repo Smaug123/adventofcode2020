@@ -2,6 +2,7 @@ namespace AdventOfCode
 
 open System.Text.RegularExpressions
 open AdventOfCode.Internals
+open System.Collections.Immutable
 
 [<RequireQualifiedAccess>]
 module Day14 =
@@ -98,7 +99,7 @@ module Day14 =
         |> Seq.sumBy (snd >> uint64)
 
     let part2 () =
-        let rec go (memory : Map<Location, uint64>) (mask : Mask) (instrs : Instruction list) : Map<Location, uint64> =
+        let rec go (memory :ImmutableDictionary<Location, uint64>) (mask : Mask) (instrs : Instruction list) : ImmutableDictionary<Location, uint64> =
             match instrs with
             | [] -> memory
             | instr :: instrs ->
@@ -107,11 +108,10 @@ module Day14 =
                 | MemSet (Location loc, value) ->
                     let memory =
                         Mask.applyFloating mask loc
-                        |> List.fold (fun memory loc -> Map.add (Location loc) value memory) memory
+                        |> List.fold (fun (memory : ImmutableDictionary<_, _>) loc -> memory.Add (Location loc, value)) memory
                     go memory mask instrs
 
         Utils.readResource "Day14Input.txt"
         |> List.map Instruction.Parse
-        |> go Map.empty Mask.Initial
-        |> Map.toSeq
-        |> Seq.sumBy (snd >> uint64)
+        |> go ImmutableDictionary.Empty Mask.Initial
+        |> Seq.sumBy (fun (KeyValue(_, v)) -> uint64 v)
