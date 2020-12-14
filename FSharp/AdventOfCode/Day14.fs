@@ -108,7 +108,7 @@ module Day14 =
                 | MemSet (Location loc, value) ->
                     let memory =
                         Mask.applyFloating mask loc
-                        |> List.fold (fun (memory : ImmutableDictionary<_, _>) loc -> memory.Add (Location loc, value)) memory
+                        |> List.fold (fun (memory : ImmutableDictionary<_, _>) loc -> memory.SetItem (Location loc, value)) memory
                     go memory mask instrs
 
         Utils.readResource "Day14Input.txt"
