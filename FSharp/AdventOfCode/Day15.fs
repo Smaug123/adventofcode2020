@@ -13,9 +13,6 @@ module Day15 =
         |> Array.map int
 
     [<Measure>]
-    type count
-
-    [<Measure>]
     type turn
     let go maxTurn (seen : ImmutableDictionary<int, int<turn> * ValueOption<int<turn>>>) (turn : int<turn>) (mostRecentlySpoken : int) =
         let d = Dictionary(seen)
