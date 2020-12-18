@@ -1,4 +1,4 @@
-namespace Test
+namespace AdventOfCode.Test
 
 open AdventOfCode
 open FsUnitTyped

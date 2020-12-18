@@ -1,4 +1,4 @@
-namespace Test
+namespace AdventOfCode.Test
 
 open FsUnitTyped
 open NUnit.Framework

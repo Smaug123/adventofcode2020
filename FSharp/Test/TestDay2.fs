@@ -1,11 +1,11 @@
-namespace Test
+namespace AdventOfCode.Test
 
 open NUnit.Framework
 open FsUnitTyped
 open AdventOfCode
 
 [<TestFixture>]
-module Day2 =
+module TestDay2 =
 
     [<Test>]
     let ``Part 1 examples`` () =
