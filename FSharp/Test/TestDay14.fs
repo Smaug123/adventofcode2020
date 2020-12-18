@@ -14,5 +14,5 @@ module TestDay14 =
 
     [<Test>]
     let ``Part 2`` () =
-        Day14.part2 ()
+        Day14.part2Faster ()
         |> shouldEqual 3161838538691UL

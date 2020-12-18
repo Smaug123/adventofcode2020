@@ -1,5 +1,6 @@
 namespace AdventOfCode
 
+open System.Collections.Generic
 open System.Text.RegularExpressions
 open AdventOfCode.Internals
 open System.Collections.Immutable
@@ -114,4 +115,25 @@ module Day14 =
         Utils.readResource "Day14Input.txt"
         |> List.map Instruction.Parse
         |> go ImmutableDictionary.Empty Mask.Initial
+        |> Seq.sumBy (fun (KeyValue(_, v)) -> uint64 v)
+
+    /// Upsettingly, ImmutableDictionary is really slow compared to Dictionary.
+    let part2Faster () =
+        let memory = Dictionary<uint64, uint64> ()
+        let rec go (mask : Mask) (instrs : Instruction list) : unit =
+            match instrs with
+            | [] -> ()
+            | instr :: instrs ->
+                match instr with
+                | UpdateMask mask -> go mask instrs
+                | MemSet (Location loc, value) ->
+                    Mask.applyFloating mask loc
+                    |> List.iter (fun loc -> memory.[loc] <- value)
+                    go mask instrs
+
+        Utils.readResource "Day14Input.txt"
+        |> List.map Instruction.Parse
+        |> go Mask.Initial
+
+        memory
         |> Seq.sumBy (fun (KeyValue(_, v)) -> uint64 v)
