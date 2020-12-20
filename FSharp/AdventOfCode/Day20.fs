@@ -344,25 +344,6 @@ module Day20 =
                     yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateClockwise edgeAgainstOurTop ; Flippage = Normal }
             }
 
-    // A reflection/rotation so that toInsert matches existing.
-    let transform (toInsert : Placement) (existing : Placement) : Placement -> Placement =
-        let rec createRotation (rotation : Side -> Side) (toInsert : Side) =
-            if toInsert = existing.EdgeOnTop then rotation else
-            createRotation (rotateClockwise >> rotation) (rotateClockwise toInsert)
-
-        let createRotation = createRotation id toInsert.EdgeOnTop
-        let createFlip =
-            match toInsert.Flippage, existing.Flippage with
-            | Normal, Normal
-            | Flipped, Flipped -> id
-            | _, _ -> flip
-
-        fun placement ->
-            { placement with
-                Flippage = createFlip placement.Flippage
-                EdgeOnTop = createRotation placement.EdgeOnTop
-            }
-
     /// Get the location of each tile, though not its orientation.
     let getTilePositions (built : Placement [][]) : int<tile>[][] =
         // `built` contains the rows and the columns of the tiles in the grid.
@@ -375,7 +356,7 @@ module Day20 =
         let size = rowsAndCols.[0].Length
         let placement =
             [|
-                for i in 1..size do yield Array.zeroCreate<int<tile> option> size
+                for _ in 1..size do yield Array.zeroCreate<int<tile> option> size
             |]
 
         // Pick an arbitrary row, then find an intersecting column.
@@ -406,7 +387,7 @@ module Day20 =
                 seq {
                     for i in 0..placement.Length - 1 do
                         // Would we be suitable as this row?
-                        let isOk =
+                        let isOk, isBad =
                             placement.[i]
                             |> Seq.mapi (fun j placement -> j, placement)
                             |> Seq.choose (fun (j, placement) ->
@@ -414,19 +395,20 @@ module Day20 =
                                 | None -> None
                                 | Some p ->
                                     if p = rowOrCol.[j].Tile then
-                                        Some (Choice1Of2 i)
+                                        Some (Ok i)
                                     else
                                         // Incompatible
-                                        Some (Choice2Of2 ())
+                                        Some (Error ())
                             )
-                            |> Seq.head
-                        match isOk with
-                        | Choice1Of2 output ->
-                            yield Choice1Of2 output
-                        | Choice2Of2 () -> ()
+                            |> List.ofSeq
+                            // why does partitionChoice not exist
+                            |> List.partition (function | Ok _ -> true | Error _ -> false)
+                        match isBad with
+                        | _ :: _ -> ()
+                        | [] -> yield Choice1Of2 (List.head isOk |> function | Ok x -> x | _ -> failwith "logic error")
                     for j in 0..placement.[0].Length - 1 do
                         // Would we be suitable as this col?
-                        let isOk =
+                        let isOk, isBad =
                             placement
                             |> Seq.mapi (fun i row -> (i, row))
                             |> Seq.choose (fun (i, row) ->
@@ -434,24 +416,25 @@ module Day20 =
                                 | None -> None
                                 | Some p ->
                                     if p = rowOrCol.[i].Tile then
-                                        Some (Choice1Of2 j)
+                                        Some (Ok j)
                                     else
                                         // Incompatible
-                                        Some (Choice2Of2 ())
+                                        Some (Error ())
                             )
-                            |> Seq.head
-                        match isOk with
-                        | Choice1Of2 output -> yield Choice2Of2 output
-                        | Choice2Of2 () -> ()
+                            |> List.ofSeq
+                            // why does Result.partition not exist
+                            |> List.partition (function | Ok _ -> true | Error _ -> false)
+                        match isBad with
+                        | _ :: _ -> ()
+                        | [] -> yield Choice2Of2 (List.head isOk |> function | Ok x -> x | _ -> failwith "logic error")
                 }
                 |> Seq.tryHead
             match position with
             | None ->
                 if reved then
-                    printfn "Failed to place row: %+A" (rowOrCol |> Array.map (fun i -> i.Tile))
                     placement
                     |> Array.iter (fun row -> Array.map (fun i -> match i with | Some i -> string i | None -> "----") row |> String.concat "  " |> printfn "%s")
-                    go false (i + 1)
+                    failwithf "Failed to place row: %+A" (rowOrCol |> Array.map (fun i -> i.Tile))
                 else
                     rowsAndCols.[i] <- Array.rev rowOrCol
                     go true i
@@ -501,8 +484,19 @@ module Day20 =
                     if rotated.[0] = original then soFar else
                     rotations original (rotated :: soFar) rotated
 
-                let rotations = rotations expectedTraversal.[0] [] expectedTraversal |> Set.ofList
-                flippages.[i].[j] <- if rotations.Contains actualTraversal then Normal else Flipped
+                let rotationsCalc = rotations expectedTraversal.[0] [expectedTraversal] expectedTraversal |> Set.ofList
+                flippages.[i].[j] <-
+                    if rotationsCalc.Contains actualTraversal then Normal else
+                    // Assert consistency
+                    let expectedTraversal =
+                        match expectedTraversal with
+                        | [x ; y ; z ; w] -> [x ; w ; z ; y]
+                        | _ -> failwith "too small"
+                    let rotationsCalc = rotations expectedTraversal.[0] [expectedTraversal] expectedTraversal |> Set.ofList
+                    if not (rotationsCalc.Contains actualTraversal) then
+                        printfn "eep: (%i, %i) %+A // %+A %+A" i j actualTraversal expectedTraversal rotationsCalc
+                        failwith "assertion failed"
+                    Flipped
 
         flippages
 
@@ -570,7 +564,7 @@ module Day20 =
                 // Find the orientation which will align entry (row-1, col) with (row, col).
                 let immediatelyAbove = placement.[row-1].[col]
                 let matches = matches.[placement.[row].[col]]
-                orientations.[row].[col] <-
+                let s =
                     seq {
                         yield!
                             matches.TopTiles
@@ -593,7 +587,7 @@ module Day20 =
                             |> Option.bind (fun (t, _, _) -> if t = immediatelyAbove then Some Left else None)
                             |> Option.toList
                     }
-                    |> Seq.head
+                orientations.[row].[col] <- s |> Seq.exactlyOne
 
         orientations
 
@@ -669,6 +663,15 @@ module Day20 =
             )
             |> Seq.map (fun (prev, next) -> assembleLine matches prev next |> Array.ofSeq)
             |> Seq.toArray
+
+        // Sanity check
+        do
+            let count =
+                built
+                |> Array.map Array.length
+                |> Set.ofArray
+                |> Set.count
+            if count <> 1 then failwith "oh no!"
 
         let placement = getTilePositions built
 
