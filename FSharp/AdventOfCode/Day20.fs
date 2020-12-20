@@ -1,5 +1,6 @@
 namespace AdventOfCode
 
+open System.Collections.Generic
 open AdventOfCode.Internals
 open System
 
@@ -118,6 +119,12 @@ module Day20 =
         | Right
         | Top
         | Bottom
+        override this.ToString () =
+            match this with
+            | Left -> "L"
+            | Right -> "R"
+            | Top -> "T"
+            | Bottom -> "B"
 
     type Flippage =
         | Normal
@@ -223,6 +230,42 @@ module Day20 =
             Flippage : Flippage
         }
 
+    let transformGrid (edgeOnTop : Side) (flippage : Flippage) (square : 'a [] []) =
+        let result =
+            [|
+                for _ in 0..square.Length-1 do
+                    yield Array.zeroCreate square.Length
+            |]
+        match edgeOnTop with
+        | Top ->
+            for i in 0..square.Length-1 do
+                for j in 0..square.[i].Length-1 do
+                    result.[i].[j] <- square.[i].[j]
+        | Left ->
+            for i in 0..square.Length-1 do
+                for j in 0..square.[i].Length-1 do
+                    result.[j].[square.[i].Length - i - 1] <- square.[i].[j]
+        | Right ->
+            for i in 0..square.Length-1 do
+                for j in 0..square.[i].Length-1 do
+                    result.[square.Length - j - 1].[i] <- square.[i].[j]
+        | Bottom ->
+            for i in 0..square.Length-1 do
+                for j in 0..square.[i].Length-1 do
+                    result.[square.Length - i - 1].[square.[i].Length - j - 1] <- square.[i].[j]
+
+        match flippage with
+        | Normal -> ()
+        | Flipped ->
+            for i in 0..square.Length-1 do
+                result.[i] <- result.[i] |> Array.rev
+
+        result
+
+    let toGrid (tiles : Map<int<tile>, Tile>) (placement : Placement) : Status[][] =
+        let (Tile tile) = tiles.[placement.Tile]
+        transformGrid placement.EdgeOnTop placement.Flippage tile
+
     let rotateClockwise side =
         match side with
         | Left -> Top
@@ -301,6 +344,290 @@ module Day20 =
                     yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateClockwise edgeAgainstOurTop ; Flippage = Normal }
             }
 
+    // A reflection/rotation so that toInsert matches existing.
+    let transform (toInsert : Placement) (existing : Placement) : Placement -> Placement =
+        let rec createRotation (rotation : Side -> Side) (toInsert : Side) =
+            if toInsert = existing.EdgeOnTop then rotation else
+            createRotation (rotateClockwise >> rotation) (rotateClockwise toInsert)
+
+        let createRotation = createRotation id toInsert.EdgeOnTop
+        let createFlip =
+            match toInsert.Flippage, existing.Flippage with
+            | Normal, Normal
+            | Flipped, Flipped -> id
+            | _, _ -> flip
+
+        fun placement ->
+            { placement with
+                Flippage = createFlip placement.Flippage
+                EdgeOnTop = createRotation placement.EdgeOnTop
+            }
+
+    /// Get the location of each tile, though not its orientation.
+    let getTilePositions (built : Placement [][]) : int<tile>[][] =
+        // `built` contains the rows and the columns of the tiles in the grid.
+        // Remove duplicates.
+        let rowsAndCols =
+            built
+            |> Array.groupBy (fun row -> List.sort [row.[0].Tile ; row.[row.Length - 1].Tile])
+            |> Array.map (fun (_, rows) -> rows.[0])
+
+        let size = rowsAndCols.[0].Length
+        let placement =
+            [|
+                for i in 1..size do yield Array.zeroCreate<int<tile> option> size
+            |]
+
+        // Pick an arbitrary row, then find an intersecting column.
+        let firstRow = rowsAndCols.[0] |> Array.map (fun i -> i.Tile) |> Set.ofArray
+        let colNum, col, intersection =
+            rowsAndCols
+            |> Seq.skip 1
+            |> Seq.mapi (fun i row -> i, row)
+            |> Seq.choose (fun (i, row) ->
+                let entries = row |> Array.map (fun i -> i.Tile) |> Set.ofArray
+                let intersect = Set.intersect entries firstRow
+                if intersect <> Set.empty then Some (i, row, intersect |> Seq.exactlyOne) else None
+            )
+            |> Seq.head
+
+        let intersectionPointX = Array.findIndex (fun p -> p.Tile = intersection) rowsAndCols.[0]
+        let intersectionPointY = Array.findIndex (fun p -> p.Tile = intersection) col
+
+        for i in 0..size - 1 do
+            placement.[i].[intersectionPointX] <- Some col.[i].Tile
+            placement.[intersectionPointY].[i] <- Some rowsAndCols.[0].[i].Tile
+
+        let rec go (reved : bool) (i : int) =
+            if i = colNum + 1 then go false (i + 1)
+            elif i >= rowsAndCols.Length then () else
+            let rowOrCol = rowsAndCols.[i]
+            let position =
+                seq {
+                    for i in 0..placement.Length - 1 do
+                        // Would we be suitable as this row?
+                        let isOk =
+                            placement.[i]
+                            |> Seq.mapi (fun j placement -> j, placement)
+                            |> Seq.choose (fun (j, placement) ->
+                                match placement with
+                                | None -> None
+                                | Some p ->
+                                    if p = rowOrCol.[j].Tile then
+                                        Some (Choice1Of2 i)
+                                    else
+                                        // Incompatible
+                                        Some (Choice2Of2 ())
+                            )
+                            |> Seq.head
+                        match isOk with
+                        | Choice1Of2 output ->
+                            yield Choice1Of2 output
+                        | Choice2Of2 () -> ()
+                    for j in 0..placement.[0].Length - 1 do
+                        // Would we be suitable as this col?
+                        let isOk =
+                            placement
+                            |> Seq.mapi (fun i row -> (i, row))
+                            |> Seq.choose (fun (i, row) ->
+                                match row.[j] with
+                                | None -> None
+                                | Some p ->
+                                    if p = rowOrCol.[i].Tile then
+                                        Some (Choice1Of2 j)
+                                    else
+                                        // Incompatible
+                                        Some (Choice2Of2 ())
+                            )
+                            |> Seq.head
+                        match isOk with
+                        | Choice1Of2 output -> yield Choice2Of2 output
+                        | Choice2Of2 () -> ()
+                }
+                |> Seq.tryHead
+            match position with
+            | None ->
+                if reved then
+                    printfn "Failed to place row: %+A" (rowOrCol |> Array.map (fun i -> i.Tile))
+                    placement
+                    |> Array.iter (fun row -> Array.map (fun i -> match i with | Some i -> string i | None -> "----") row |> String.concat "  " |> printfn "%s")
+                    go false (i + 1)
+                else
+                    rowsAndCols.[i] <- Array.rev rowOrCol
+                    go true i
+            | Some (Choice1Of2 pos) ->
+                for j in 0..placement.[pos].Length - 1 do
+                    placement.[pos].[j] <- Some rowOrCol.[j].Tile
+                go false (i + 1)
+            | Some (Choice2Of2 j) ->
+                for i in 0..placement.[j].Length - 1 do
+                    placement.[i].[j] <- Some rowOrCol.[i].Tile
+                go false (i + 1)
+
+        go false 1
+
+        placement
+        |> Array.map (Array.map Option.get)
+
+    let constructFlippages (matches : Map<int<tile>, Matches>) (placement : IReadOnlyList<IReadOnlyList<_>>) : Flippage[][] =
+        let flippages =
+            [|
+                for i in 0..placement.Count - 1 do
+                    Array.zeroCreate placement.[i].Count
+            |]
+
+        for i in 0..placement.Count - 1 do
+            for j in 0..placement.[i].Count - 1 do
+                let currentTile = placement.[i].[j]
+                let expectedTraversal =
+                    [
+                        matches.[currentTile].RightTiles |> Seq.tryExactlyOne |> Option.map (fun (a, _, _) -> a)
+                        matches.[currentTile].BottomTiles |> Seq.tryExactlyOne |> Option.map (fun (a, _, _) -> a)
+                        matches.[currentTile].LeftTiles |> Seq.tryExactlyOne |> Option.map (fun (a, _, _) -> a)
+                        matches.[currentTile].TopTiles |> Seq.tryExactlyOne |> Option.map (fun (a, _, _) -> a)
+                    ]
+                let actualTraversal =
+                    [
+                        if j < placement.[i].Count - 1 then Some placement.[i].[j+1] else None
+                        if i < placement.Count - 1 then Some placement.[i+1].[j] else None
+                        if 0 < j then Some placement.[i].[j - 1] else None
+                        if 0 < i then Some placement.[i - 1].[j] else None
+                    ]
+                let rec rotations (original : _) (soFar : _ list) (l : _ list) =
+                    let rotated =
+                        match l with
+                        | [] -> failwith "logic error"
+                        | x :: xs -> xs @ [x]
+                    if rotated.[0] = original then soFar else
+                    rotations original (rotated :: soFar) rotated
+
+                let rotations = rotations expectedTraversal.[0] [] expectedTraversal |> Set.ofList
+                flippages.[i].[j] <- if rotations.Contains actualTraversal then Normal else Flipped
+
+        flippages
+
+    let constructOrientations (matches : Map<int<tile>, Matches>) (placement : int<tile>[][]) (flippages : Flippage[][]) =
+        let orientations =
+            [|
+                for i in 0..placement.Length - 1 do Array.zeroCreate placement.[i].Length
+            |]
+
+        // Orient the first row.
+        for col in 1..placement.[0].Length-2 do
+            // The side is Up which has no entry.
+            orientations.[0].[col] <-
+                let matches = matches.[placement.[0].[col]]
+                if matches.LeftTiles.IsEmpty then Left
+                elif matches.RightTiles.IsEmpty then Right
+                elif matches.TopTiles.IsEmpty then Top
+                else Bottom
+
+        // Orient the two top corners.
+        do
+            let matches = matches.[placement.[0].[0]]
+            orientations.[0].[0] <-
+                if matches.LeftTiles.IsEmpty && matches.TopTiles.IsEmpty then
+                    match flippages.[0].[0] with
+                    | Normal -> Top
+                    | Flipped -> Left
+                elif matches.TopTiles.IsEmpty && matches.RightTiles.IsEmpty then
+                    match flippages.[0].[0] with
+                    | Normal -> Right
+                    | Flipped -> Top
+                elif matches.RightTiles.IsEmpty && matches.BottomTiles.IsEmpty then
+                    match flippages.[0].[0] with
+                    | Normal -> Bottom
+                    | Flipped -> Right
+                else
+                    match flippages.[0].[0] with
+                    | Normal -> Left
+                    | Flipped -> Bottom
+
+        do
+            let min1 = placement.[0].Length - 1
+            let matches = matches.[placement.[0].[min1]]
+            orientations.[0].[min1] <-
+                if matches.LeftTiles.IsEmpty && matches.TopTiles.IsEmpty then
+                    match flippages.[0].[min1] with
+                    | Normal -> Left
+                    | Flipped -> Top
+                elif matches.TopTiles.IsEmpty && matches.RightTiles.IsEmpty then
+                    match flippages.[0].[min1] with
+                    | Normal -> Top
+                    | Flipped -> Right
+                elif matches.RightTiles.IsEmpty && matches.BottomTiles.IsEmpty then
+                    match flippages.[0].[min1] with
+                    | Normal -> Right
+                    | Flipped -> Bottom
+                else
+                    match flippages.[0].[min1] with
+                    | Normal -> Bottom
+                    | Flipped -> Left
+
+        // Orient the other rows.
+        for row in 1..placement.Length - 1 do
+            for col in 0..placement.[row].Length - 1 do
+                // Find the orientation which will align entry (row-1, col) with (row, col).
+                let immediatelyAbove = placement.[row-1].[col]
+                let matches = matches.[placement.[row].[col]]
+                orientations.[row].[col] <-
+                    seq {
+                        yield!
+                            matches.TopTiles
+                            |> Seq.tryExactlyOne
+                            |> Option.bind (fun (t, _, _) -> if t = immediatelyAbove then Some Top else None)
+                            |> Option.toList
+                        yield!
+                            matches.RightTiles
+                            |> Seq.tryExactlyOne
+                            |> Option.bind (fun (t, _, _) -> if t = immediatelyAbove then Some Right else None)
+                            |> Option.toList
+                        yield!
+                            matches.BottomTiles
+                            |> Seq.tryExactlyOne
+                            |> Option.bind (fun (t, _, _) -> if t = immediatelyAbove then Some Bottom else None)
+                            |> Option.toList
+                        yield!
+                            matches.LeftTiles
+                            |> Seq.tryExactlyOne
+                            |> Option.bind (fun (t, _, _) -> if t = immediatelyAbove then Some Left else None)
+                            |> Option.toList
+                    }
+                    |> Seq.head
+
+        orientations
+
+    let findSeaMonsterSquares (s : Status[][]) =
+        seq {
+            for i in 0..s.Length - 1 do
+                for j in 0..s.[i].Length - 1 do
+                    // A sea monster looks like:
+                    //                  #
+                    //#    ##    ##    ###
+                    // #  #  #  #  #  #
+                    let monsterSquares =
+                        [
+                            i, j + 18
+                            i+1, j
+                            i+1, j+5
+                            i+1, j+6
+                            i+1, j+11
+                            i+1, j+12
+                            i+1, j+17
+                            i+1, j+18
+                            i+1, j+19
+                            i+2, j+1
+                            i+2, j+4
+                            i+2, j+7
+                            i+2, j+10
+                            i+2, j+13
+                            i+2, j+16
+                        ]
+                    if List.forall (fun (i, j) -> i < s.Length && j < s.[i].Length && s.[i].[j] = Status.On) monsterSquares then
+                        yield! monsterSquares
+        }
+        |> Set.ofSeq
+
     let part2 () =
         let tiles =
             Utils.readResource "Day20Input.txt"
@@ -324,12 +651,13 @@ module Day20 =
         let built =
             matches
             |> Map.toSeq
-            |> Seq.choose (fun (i, m) ->
-                if m.LeftTiles.IsEmpty then Some ({ Tile = i ; EdgeOnTop = Top ; Flippage = Normal }, Seq.exactlyOne m.RightTiles)
-                elif m.RightTiles.IsEmpty then Some ({ Tile = i ; EdgeOnTop = Bottom ; Flippage = Normal }, Seq.exactlyOne m.LeftTiles)
-                elif m.TopTiles.IsEmpty then Some ({ Tile = i ; EdgeOnTop = Right ; Flippage = Normal }, Seq.exactlyOne m.BottomTiles)
-                elif m.BottomTiles.IsEmpty then Some ({ Tile = i ; EdgeOnTop = Left ; Flippage = Normal }, Seq.exactlyOne m.TopTiles)
-                else None
+            |> Seq.collect (fun (i, m) ->
+                [
+                    if m.LeftTiles.IsEmpty then yield ({ Tile = i ; EdgeOnTop = Top ; Flippage = Normal }, Seq.exactlyOne m.RightTiles)
+                    if m.RightTiles.IsEmpty then yield ({ Tile = i ; EdgeOnTop = Bottom ; Flippage = Normal }, Seq.exactlyOne m.LeftTiles)
+                    if m.TopTiles.IsEmpty then yield ({ Tile = i ; EdgeOnTop = Right ; Flippage = Normal }, Seq.exactlyOne m.BottomTiles)
+                    if m.BottomTiles.IsEmpty then yield ({ Tile = i ; EdgeOnTop = Left ; Flippage = Normal }, Seq.exactlyOne m.TopTiles)
+                ]
             )
             |> Seq.map (fun (placement, (next, edgeAgainst, flippage)) ->
                 placement,
@@ -342,19 +670,43 @@ module Day20 =
             |> Seq.map (fun (prev, next) -> assembleLine matches prev next |> Array.ofSeq)
             |> Seq.toArray
 
-        // `built` now contains the rows and the columns of the tiles in the grid.
-        // Remove duplicates.
-        let rowsAndCols =
-            built
-            |> Array.groupBy (fun row -> List.sort [row.[0].Tile ; row.[row.Length - 1].Tile])
-            |> Array.map (fun (_, rows) -> rows.[0])
+        let placement = getTilePositions built
 
-        let size = rowsAndCols.[0].Length
-        let placement =
-            [|
-                for i in 1..size do yield Array.zeroCreate<Placement> size
-            |]
+        // Find the flip status of each tile.
+        let flippages =
+            placement
+            |> Array.map (fun i -> i :> IReadOnlyList<_>)
+            :> IReadOnlyList<_>
+            |> constructFlippages matches
 
-        printfn "%+A" rowsAndCols
+        let orientations =
+            constructOrientations matches placement flippages
 
-        0
+        let placed =
+            let arr = [| for i in 0..placement.Length - 1 do yield Array.zeroCreate placement.[i].Length |]
+            for i in 0..arr.Length - 1 do
+                for j in 0..arr.[i].Length - 1 do
+                    arr.[i].[j] <- { Tile = placement.[i].[j] ; EdgeOnTop = orientations.[i].[j] ; Flippage = flippages.[i].[j] }
+            arr
+
+        let bigGrid =
+            placed
+            |> Array.map (Array.map (toGrid tiles >> Array.map (fun i -> i.[1..i.Length - 2]) >> fun i -> i.[1..i.Length - 2]))
+            |> Array.map (Array.transpose >> Array.map Array.concat)
+            |> Array.concat
+
+        let allPositions =
+            [ Left ; Right ; Top ; Bottom ]
+            |> List.allPairs [Flipped ; Normal]
+
+        let hashCount = bigGrid |> Array.sumBy (Array.sumBy (function | Status.On -> 1 | Status.Off -> 0))
+
+        allPositions
+        |> List.choose (fun (flip, side) ->
+            let seaMonsterSquares = findSeaMonsterSquares (transformGrid side flip bigGrid)
+            if seaMonsterSquares.IsEmpty then
+                None
+            else
+                Some (hashCount - seaMonsterSquares.Count)
+        )
+        |> List.exactlyOne
