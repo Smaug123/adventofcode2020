@@ -43,6 +43,7 @@ module Day20 =
     [<Measure>]
     type hash
 
+    /// The numbers you get by reading clockwise around the grid.
     type Edges =
         {
             Left : int<hash>
@@ -68,9 +69,8 @@ module Day20 =
                     |> fun i -> i * 1<hash>
                 Right =
                     seq {
-                        for i in 1..tile.Length do
-                            let pos = tile.Length - i
-                            yield tile.[pos].[tile.[pos].Length - 1]
+                        for i in 0..tile.Length-1 do
+                            yield tile.[i].[tile.[i].Length - 1]
                     }
                     |> interpretBinary
                     |> fun i -> i * 1<hash>
@@ -80,6 +80,7 @@ module Day20 =
                     |> fun i -> i * 1<hash>
                 Bottom =
                     tile.[tile.Length - 1]
+                    |> Array.rev
                     |> interpretBinary
                     |> fun i -> i * 1<hash>
             }
@@ -94,8 +95,9 @@ module Day20 =
                     |> fun i -> i * 1<hash>
                 Right =
                     seq {
-                        for i in 0..tile.Length-1 do
-                            yield tile.[i].[tile.[i].Length - 1]
+                        for i in 1..tile.Length do
+                            let pos = tile.Length - i
+                            yield tile.[pos].[tile.[pos].Length - 1]
                     }
                     |> interpretBinary
                     |> fun i -> i * 1<hash>
@@ -106,7 +108,6 @@ module Day20 =
                     |> fun i -> i * 1<hash>
                 Bottom =
                     tile.[tile.Length - 1]
-                    |> Array.rev
                     |> interpretBinary
                     |> fun i -> i * 1<hash>
             }
@@ -138,6 +139,11 @@ module Day20 =
             RightTiles : (int<tile> * Side * Flippage) Set
         }
 
+    let flip f =
+        match f with
+        | Flippage.Normal -> Flippage.Flipped
+        | Flippage.Flipped -> Flippage.Normal
+
     let matches (tiles : Map<int<tile>, Tile>) : Map<int<tile>, Matches> =
         let edges = tiles |> Map.map (fun _ -> edges)
         let edgesGrouped : Map<int<hash>, Set<int<tile> * Side * Flippage>> =
@@ -156,13 +162,26 @@ module Day20 =
 
         edges
         |> Map.map (fun tile (normal, flipped) ->
+            let leftTiles =
+                edgesGrouped.[normal.Left] |> Set.filter (fun (x, _, _) -> x <> tile)
+                |> Set.union (edgesGrouped.[flipped.Left] |> Seq.choose (fun (x, side, flippage) -> if x = tile then None else Some (x, side, flip flippage)) |> Set.ofSeq)
+            let topTiles =
+                edgesGrouped.[normal.Top] |> Set.filter (fun (x, _, _) -> x <> tile)
+                |> Set.union (edgesGrouped.[flipped.Top] |> Seq.choose (fun (x, side, flippage) -> if x = tile then None else Some (x, side, flip flippage)) |> Set.ofSeq)
+            let bottomTiles =
+                edgesGrouped.[normal.Bottom] |> Set.filter (fun (x, _, _) -> x <> tile)
+                |> Set.union (edgesGrouped.[flipped.Bottom] |> Seq.choose (fun (x, side, flippage) -> if x = tile then None else Some (x, side, flip flippage)) |> Set.ofSeq)
+            let rightTiles =
+                edgesGrouped.[normal.Right] |> Set.filter (fun (x, _, _) -> x <> tile)
+                |> Set.union (edgesGrouped.[flipped.Right] |> Seq.choose (fun (x, side, flippage) -> if x = tile then None else Some (x, side, flip flippage)) |> Set.ofSeq)
+            // Now need to invert all the flippages, because a piece fits against another piece if reading clockwise
+            // along the shared edge on one piece matches up with reading *anti*clockwise along the shared edge on the
+            // other piece.
             {
-                LeftTiles =
-                    edgesGrouped.[normal.Left] |> Set.filter (fun (x, _, _) -> x <> tile)
-                    //|> Set.union (edgesGrouped.[flipped.Left] |> Set.filter (fun (x, _, _) -> x <> tile))
-                TopTiles = edgesGrouped.[normal.Top] |> Set.filter (fun (x, _, _) -> x <> tile)
-                BottomTiles = edgesGrouped.[normal.Bottom] |> Set.filter (fun (x, _, _) -> x <> tile)
-                RightTiles = edgesGrouped.[normal.Right] |> Set.filter (fun (x, _, _) -> x <> tile)
+                LeftTiles = leftTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
+                TopTiles = topTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
+                BottomTiles = bottomTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
+                RightTiles = rightTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
             }
         )
 
@@ -270,22 +289,21 @@ module Day20 =
                 match matches.[placementNext.Tile].BottomTiles |> Seq.tryHead with
                 | None -> yield placementNext
                 | Some (tile, edgeAgainstOurBottom, Normal) ->
-                    // definitely correct
-                    yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateAnticlockwise edgeAgainstOurBottom ; Flippage = Normal }
+                    yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateClockwise edgeAgainstOurBottom ; Flippage = Normal }
                 | Some (tile, edgeAgainstOurBottom, Flipped) ->
-                    yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateClockwise edgeAgainstOurBottom ; Flippage = Flipped }
+                    yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateAnticlockwise edgeAgainstOurBottom ; Flippage = Flipped }
             | Side.Right, Flipped ->
                 match matches.[placementNext.Tile].TopTiles |> Seq.tryHead with
                 | None -> yield placementNext
                 | Some (tile, edgeAgainstOurTop, Normal) ->
-                    yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateClockwise edgeAgainstOurTop ; Flippage = Flipped }
+                    yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateAnticlockwise edgeAgainstOurTop ; Flippage = Flipped }
                 | Some (tile, edgeAgainstOurTop, Flipped) ->
-                    yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateAnticlockwise edgeAgainstOurTop ; Flippage = Normal }
+                    yield! assembleLine matches placementNext { Tile = tile ; EdgeOnTop = rotateClockwise edgeAgainstOurTop ; Flippage = Normal }
             }
 
     let part2 () =
         let tiles =
-            Utils.readResource "Day19Input.txt"
+            Utils.readResource "Day20Input.txt"
             |> Seq.splitAt ((=) "")
             |> Seq.map parse
             |> Map.ofSeq
@@ -323,5 +341,20 @@ module Day20 =
             )
             |> Seq.map (fun (prev, next) -> assembleLine matches prev next |> Array.ofSeq)
             |> Seq.toArray
+
+        // `built` now contains the rows and the columns of the tiles in the grid.
+        // Remove duplicates.
+        let rowsAndCols =
+            built
+            |> Array.groupBy (fun row -> List.sort [row.[0].Tile ; row.[row.Length - 1].Tile])
+            |> Array.map (fun (_, rows) -> rows.[0])
+
+        let size = rowsAndCols.[0].Length
+        let placement =
+            [|
+                for i in 1..size do yield Array.zeroCreate<Placement> size
+            |]
+
+        printfn "%+A" rowsAndCols
 
         0
