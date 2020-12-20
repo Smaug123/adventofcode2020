@@ -33,6 +33,7 @@
         <Compile Include="TestDay17.fs" />
         <Compile Include="TestDay18.fs" />
         <Compile Include="TestDay19.fs" />
+        <Compile Include="TestDay20.fs" />
     </ItemGroup>
 
     <ItemGroup>
