@@ -21,6 +21,8 @@ module Day1 =
 
     /// Quadratic-space single-pass algorithm.
     /// Note that one might reasonably expect this to be slow, because it allocates a lot.
+    /// We could do a *lot* better by backing the twoSums Map with an array [0..2020], assuming there are no negative
+    /// elements in the list.
     let rec private go2 (target : int) (twoSums : Map<int, int * int>) (seenSoFar : int Set) (xs : int list) =
         match xs with
         | [] -> None
