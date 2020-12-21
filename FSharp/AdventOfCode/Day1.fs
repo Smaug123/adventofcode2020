@@ -125,15 +125,24 @@ module Day1 =
             // Life's too short.
             |> List.toArray
 
-        seq {
-            for i in 0..arr.Length - 1 do
-                for j in i..arr.Length - 1 do
-                    // very optimise, such lift
-                    let sum = arr.[i] + arr.[j]
-                    for k in j..arr.Length - 1 do
-                        if sum + arr.[k] = 2020 then
-                            yield (arr.[i], arr.[j], arr.[k])
-        }
-        |> Seq.tryHead
-        |> Option.map (fun (a, b, c) -> a * b * c)
+        let rec go (i : int) =
+            if i >= arr.Length then None else
+            let rec goJ (j : int) =
+                if j >= arr.Length then None else
+                let sum = arr.[i] + arr.[j]
 
+                let rec goK (k : int) =
+                    if k >= arr.Length then None else
+                    if sum + arr.[k] = 2020 then
+                        Some (arr.[i] * arr.[j] * arr.[k])
+                    else goK (k + 1)
+
+                match goK j with
+                | None -> goJ (j + 1)
+                | Some r -> Some r
+
+            match goJ (i + 1) with
+            | None -> go (i + 1)
+            | Some r -> Some r
+
+        go 0

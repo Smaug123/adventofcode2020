@@ -26,6 +26,7 @@
         <EmbeddedResource Include="../../Inputs/Day19Input.txt" />
         <EmbeddedResource Include="../../Inputs/Day20Input.txt" />
         <EmbeddedResource Include="../../Inputs/Day21Input.txt" />
+        <EmbeddedResource Include="../../Inputs/Day22Input.txt" />
         <Compile Include="Utils.fs" />
         <Compile Include="ArrayBackedMap.fs" />
         <Compile Include="Day1.fs" />
