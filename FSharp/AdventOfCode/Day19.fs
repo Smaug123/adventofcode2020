@@ -1,6 +1,7 @@
 namespace AdventOfCode
 
 open System
+open System.Collections.Generic
 open System.Text.RegularExpressions
 open AdventOfCode.Internals
 
@@ -33,12 +34,12 @@ module Day19 =
 
             | _ -> failwithf "Unexpected number of colons in '%s'" s
 
-    let rec toRegex (allRules : Map<int, Rule>) (rule : Rule) : string =
-        match rule with
+    let rec toRegex (allRules : IReadOnlyDictionary<int, Rule>) (ruleNum : int) : string =
+        match allRules.[ruleNum] with
         | Rule.Exactly c -> c.ToString()
         | Rule.RecursiveRule alternatives ->
             alternatives
-            |> List.map (List.map (fun i -> Map.find i allRules |> toRegex allRules) >> String.concat "")
+            |> List.map (List.map (toRegex allRules) >> String.concat "")
             |> String.concat ")|("
             |> sprintf "((%s))"
 
@@ -49,10 +50,15 @@ module Day19 =
             |> List.ofSeq
         let rules, inputs =
             match input with
-            | [ rules ; inputs ] -> List.map Rule.Parse rules |> Map.ofList, inputs
+            | [ rules ; inputs ] ->
+                let rules =
+                    rules
+                    |> Seq.map Rule.Parse
+                    |> ArrayBackedMap.ofSeq
+                rules, inputs
             | _ -> failwith "unexpected number of groups"
 
-        let regex = sprintf "^%s$" (toRegex rules rules.[0]) |> Regex
+        let regex = sprintf "^%s$" (toRegex rules 0) |> Regex
 
         inputs
         |> List.filter regex.IsMatch
@@ -77,8 +83,8 @@ module Day19 =
         // This is not something that regexes support (you can prove this with the pumping lemma), so we'll just hack it
         // with n different regexes.
 
-        let regex42 = sprintf "%s" (toRegex rules rules.[42])
-        let regex31 = sprintf "%s" (toRegex rules rules.[31])
+        let regex42 = sprintf "%s" (toRegex rules 42)
+        let regex31 = sprintf "%s" (toRegex rules 31)
         let regexes =
             [1..10]
             |> List.map (fun i -> sprintf "^(%s)+(%s){%i}(%s){%i}$" regex42 regex42 i regex31 i |> Regex)

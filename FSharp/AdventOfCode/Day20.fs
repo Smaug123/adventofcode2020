@@ -158,13 +158,14 @@ module Day20 =
         | true, v -> dict.[key] <- f (Some v)
         dict
 
-    let matches (tiles : IReadOnlyDictionary<int<tile>, Tile>) : IReadOnlyDictionary<int<tile>, Matches> =
-        let edges = tiles |> Seq.map (fun (KeyValue(k, v)) -> KeyValuePair(k, edges v)) |> Dictionary :> IReadOnlyDictionary<_,_>
+    let matches (tiles : ArrayBackedMap<tile, Tile>) : ArrayBackedMap<tile, Matches> =
+        let edges = tiles |> ArrayBackedMap.map (fun _ -> edges)
+
         let edgesGrouped = Dictionary<int<hash>, Set<int<tile> * Side * Flippage>> ()
         // Side-effectfully update the grouped edges and get a count at the same time.
         let maxSeen =
             edges
-            |> Seq.fold (fun maxSeen (KeyValue(tile, (edges, flipped))) ->
+            |> ArrayBackedMap.fold (fun maxSeen tile (edges, flipped) ->
                 edgesGrouped
                 |> dictChange edges.Left ((function | None -> Set.singleton (tile, Left, Normal) | Some a -> Set.add (tile, Left, Normal) a))
                 |> dictChange edges.Right ((function | None -> Set.singleton (tile, Right, Normal) | Some a -> Set.add (tile, Right, Normal) a))
@@ -205,14 +206,13 @@ module Day20 =
             tile, result
         )
         |> ArrayBackedMap.make maxSeen
-        :> IReadOnlyDictionary<_,_>
 
     let part1 () =
         let tiles =
             Utils.readResource "Day20Input.txt"
             |> Seq.splitAt ((=) "")
             |> Seq.map parse
-            |> Map.ofSeq
+            |> ArrayBackedMap.ofSeq
 
         let matches = matches tiles
         // A match will show up twice: once with both flipped, and once with both normal.
@@ -642,7 +642,7 @@ module Day20 =
             Utils.readResource "Day20Input.txt"
             |> Seq.splitAt ((=) "")
             |> Seq.map parse
-            |> Map.ofSeq
+            |> ArrayBackedMap.ofSeq
 
         let matches = matches tiles
 

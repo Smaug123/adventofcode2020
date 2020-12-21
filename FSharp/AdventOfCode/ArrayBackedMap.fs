@@ -124,3 +124,36 @@ module ArrayBackedMap =
             match m.Array.[i] with
             | ValueNone -> ()
             | ValueSome v -> f (LanguagePrimitives.Int32WithMeasure i) v
+
+    let ofSeq<[<Measure>]'a, 'v> (s : (int<'a> * 'v) seq) : ArrayBackedMap<'a, 'v> =
+        let s = s |> Seq.cache
+        let max = s |> Seq.map fst |> Seq.max
+        make max s
+
+    let lastWeaklyBefore<[<Measure>]'a, 'v> (k : int<'a>) (m : ArrayBackedMap<'a, 'v>) : (int<'a> * 'v) option =
+        let k = k / LanguagePrimitives.Int32WithMeasure 1
+        if k < 0 then None
+        else
+            let mutable i = min m.Max k
+            let mutable stop = false
+            while not stop && i >= 0 do
+                match m.Array.[i / LanguagePrimitives.Int32WithMeasure 1] with
+                | ValueNone -> i <- i - 1
+                | ValueSome _ -> stop <- true
+
+            if i < 0 then None else
+            Some (LanguagePrimitives.Int32WithMeasure i, ValueOption.get m.Array.[i])
+
+    let lastStrictlyAfter<[<Measure>]'a, 'v> (k : int<'a>) (m : ArrayBackedMap<'a, 'v>) : (int<'a> * 'v) option =
+        let k = k / LanguagePrimitives.Int32WithMeasure 1
+        if k >= m.Array.Length then None
+        else
+            let mutable i = max 0 k
+            let mutable stop = false
+            while not stop && i < m.Array.Length do
+                match m.Array.[i / LanguagePrimitives.Int32WithMeasure 1] with
+                | ValueNone -> i <- i + 1
+                | ValueSome _ -> stop <- true
+
+            if i >= m.Array.Length then None else
+            Some (LanguagePrimitives.Int32WithMeasure i, ValueOption.get m.Array.[i])
