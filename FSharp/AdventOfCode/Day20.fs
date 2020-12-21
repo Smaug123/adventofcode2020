@@ -7,14 +7,15 @@ open System
 [<RequireQualifiedAccess>]
 module Day20 =
 
-    [<Struct>]
-    type Status =
-        | On
-        | Off
-        static member Parse (c : char) =
+    // Upsettingly large amounts of time are taken constructing the tiny type, even when it's a struct.
+    type Status = bool
+
+    [<RequireQualifiedAccess>]
+    module Status =
+        let parse (c : char) =
             match c with
-            | '#' -> On
-            | '.' -> Off
+            | '#' -> true
+            | '.' -> false
             | _ -> failwithf "Unrecognised jigsaw status '%c'" c
 
     type Tile = | Tile of Status [] []
@@ -36,8 +37,8 @@ module Day20 =
 
             let tile =
                 rest
-                |> List.map (Seq.map Status.Parse >> Seq.toArray)
                 |> List.toArray
+                |> Array.map (Seq.map Status.parse >> Seq.toArray)
                 |> Tile
             number * 1<tile>, tile
 
@@ -55,7 +56,7 @@ module Day20 =
 
     let interpretBinary (s : Status seq) : int =
         s
-        |> Seq.fold (fun s x -> match x with | On -> 2 * s + 1 | Off -> 2 * s) 0
+        |> Seq.fold (fun s x -> match x with | true -> 2 * s + 1 | false -> 2 * s) 0
 
     // Return the edges and their flipped versions
     let edges (Tile tile) : Edges * Edges =
@@ -151,24 +152,34 @@ module Day20 =
         | Flippage.Normal -> Flippage.Flipped
         | Flippage.Flipped -> Flippage.Normal
 
-    let matches (tiles : Map<int<tile>, Tile>) : Map<int<tile>, Matches> =
-        let edges = tiles |> Map.map (fun _ -> edges)
-        let edgesGrouped : Map<int<hash>, Set<int<tile> * Side * Flippage>> =
+    let dictChange (key : 'k) (f : 'v option -> 'v) (dict : Dictionary<'k, 'v>) : Dictionary<'k, 'v> =
+        match dict.TryGetValue key with
+        | false, _ -> dict.[key] <- f None
+        | true, v -> dict.[key] <- f (Some v)
+        dict
+
+    let matches (tiles : IReadOnlyDictionary<int<tile>, Tile>) : IReadOnlyDictionary<int<tile>, Matches> =
+        let edges = tiles |> Seq.map (fun (KeyValue(k, v)) -> KeyValuePair(k, edges v)) |> Dictionary :> IReadOnlyDictionary<_,_>
+        let edgesGrouped = Dictionary<int<hash>, Set<int<tile> * Side * Flippage>> ()
+        // Side-effectfully update the grouped edges and get a count at the same time.
+        let maxSeen =
             edges
-            |> Map.fold (fun locations tile (edges, flipped) ->
-                locations
-                |> Map.change edges.Left ((function | None -> Set.singleton (tile, Left, Normal) | Some a -> Set.add (tile, Left, Normal) a) >> Some)
-                |> Map.change edges.Right ((function | None -> Set.singleton (tile, Right, Normal) | Some a -> Set.add (tile, Right, Normal) a) >> Some)
-                |> Map.change edges.Top ((function | None -> Set.singleton (tile, Top, Normal) | Some a -> Set.add (tile, Top, Normal) a) >> Some)
-                |> Map.change edges.Bottom ((function | None -> Set.singleton (tile, Bottom, Normal) | Some a -> Set.add (tile, Bottom, Normal) a) >> Some)
-                |> Map.change flipped.Left ((function | None -> Set.singleton (tile, Left, Flipped) | Some a -> Set.add (tile, Left, Flipped) a) >> Some)
-                |> Map.change flipped.Right ((function | None -> Set.singleton (tile, Right, Flipped) | Some a -> Set.add (tile, Right, Flipped) a) >> Some)
-                |> Map.change flipped.Top ((function | None -> Set.singleton (tile, Top, Flipped) | Some a -> Set.add (tile, Top, Flipped) a) >> Some)
-                |> Map.change flipped.Bottom ((function | None -> Set.singleton (tile, Bottom, Flipped) | Some a -> Set.add (tile, Bottom, Flipped) a) >> Some)
-            ) Map.empty
+            |> Seq.fold (fun maxSeen (KeyValue(tile, (edges, flipped))) ->
+                edgesGrouped
+                |> dictChange edges.Left ((function | None -> Set.singleton (tile, Left, Normal) | Some a -> Set.add (tile, Left, Normal) a))
+                |> dictChange edges.Right ((function | None -> Set.singleton (tile, Right, Normal) | Some a -> Set.add (tile, Right, Normal) a))
+                |> dictChange edges.Top ((function | None -> Set.singleton (tile, Top, Normal) | Some a -> Set.add (tile, Top, Normal) a))
+                |> dictChange edges.Bottom ((function | None -> Set.singleton (tile, Bottom, Normal) | Some a -> Set.add (tile, Bottom, Normal) a))
+                |> dictChange flipped.Left ((function | None -> Set.singleton (tile, Left, Flipped) | Some a -> Set.add (tile, Left, Flipped) a))
+                |> dictChange flipped.Right ((function | None -> Set.singleton (tile, Right, Flipped) | Some a -> Set.add (tile, Right, Flipped) a))
+                |> dictChange flipped.Top ((function | None -> Set.singleton (tile, Top, Flipped) | Some a -> Set.add (tile, Top, Flipped) a))
+                |> dictChange flipped.Bottom ((function | None -> Set.singleton (tile, Bottom, Flipped) | Some a -> Set.add (tile, Bottom, Flipped) a))
+                |> ignore
+                max maxSeen tile
+            ) 0<tile>
 
         edges
-        |> Map.map (fun tile (normal, flipped) ->
+        |> Seq.map (fun (KeyValue(tile, (normal, flipped))) ->
             let leftTiles =
                 edgesGrouped.[normal.Left] |> Set.filter (fun (x, _, _) -> x <> tile)
                 |> Set.union (edgesGrouped.[flipped.Left] |> Seq.choose (fun (x, side, flippage) -> if x = tile then None else Some (x, side, flip flippage)) |> Set.ofSeq)
@@ -184,13 +195,17 @@ module Day20 =
             // Now need to invert all the flippages, because a piece fits against another piece if reading clockwise
             // along the shared edge on one piece matches up with reading *anti*clockwise along the shared edge on the
             // other piece.
-            {
-                LeftTiles = leftTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
-                TopTiles = topTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
-                BottomTiles = bottomTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
-                RightTiles = rightTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
-            }
+            let result =
+                {
+                    LeftTiles = leftTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
+                    TopTiles = topTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
+                    BottomTiles = bottomTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
+                    RightTiles = rightTiles |> Seq.map (fun (x, side, flippage) -> (x, side, flip flippage)) |> Set.ofSeq
+                }
+            tile, result
         )
+        |> ArrayBackedMap.make maxSeen
+        :> IReadOnlyDictionary<_,_>
 
     let part1 () =
         let tiles =
@@ -202,8 +217,7 @@ module Day20 =
         let matches = matches tiles
         // A match will show up twice: once with both flipped, and once with both normal.
         matches
-        |> Map.toSeq
-        |> Seq.choose (fun (i, m) ->
+        |> Seq.choose (fun (KeyValue(i, m)) ->
             let unfilledSlots =
                 [
                     m.BottomTiles
@@ -262,7 +276,7 @@ module Day20 =
 
         result
 
-    let toGrid (tiles : Map<int<tile>, Tile>) (placement : Placement) : Status[][] =
+    let toGrid (tiles : IReadOnlyDictionary<int<tile>, Tile>) (placement : Placement) : Status[][] =
         let (Tile tile) = tiles.[placement.Tile]
         transformGrid placement.EdgeOnTop placement.Flippage tile
 
@@ -281,7 +295,7 @@ module Day20 =
         | Bottom -> Right
 
     /// Assemble a row of pieces out to the right.
-    let rec assembleLine (matches : Map<int<tile>, Matches>) (placementLeft : Placement) (placementNext : Placement) : Placement seq =
+    let rec assembleLine (matches : IReadOnlyDictionary<int<tile>, Matches>) (placementLeft : Placement) (placementNext : Placement) : Placement seq =
         seq {
             yield placementLeft
 
@@ -452,7 +466,7 @@ module Day20 =
         placement
         |> Array.map (Array.map Option.get)
 
-    let constructFlippages (matches : Map<int<tile>, Matches>) (placement : IReadOnlyList<IReadOnlyList<_>>) : Flippage[][] =
+    let constructFlippages (matches : IReadOnlyDictionary<int<tile>, Matches>) (placement : IReadOnlyList<IReadOnlyList<_>>) : Flippage[][] =
         let flippages =
             [|
                 for i in 0..placement.Count - 1 do
@@ -500,7 +514,7 @@ module Day20 =
 
         flippages
 
-    let constructOrientations (matches : Map<int<tile>, Matches>) (placement : int<tile>[][]) (flippages : Flippage[][]) =
+    let constructOrientations (matches : IReadOnlyDictionary<int<tile>, Matches>) (placement : int<tile>[][]) (flippages : Flippage[][]) =
         let orientations =
             [|
                 for i in 0..placement.Length - 1 do Array.zeroCreate placement.[i].Length
@@ -592,35 +606,36 @@ module Day20 =
         orientations
 
     let findSeaMonsterSquares (s : Status[][]) =
-        seq {
-            for i in 0..s.Length - 1 do
-                for j in 0..s.[i].Length - 1 do
-                    // A sea monster looks like:
-                    //                  #
-                    //#    ##    ##    ###
-                    // #  #  #  #  #  #
-                    let monsterSquares =
-                        [
-                            i, j + 18
-                            i+1, j
-                            i+1, j+5
-                            i+1, j+6
-                            i+1, j+11
-                            i+1, j+12
-                            i+1, j+17
-                            i+1, j+18
-                            i+1, j+19
-                            i+2, j+1
-                            i+2, j+4
-                            i+2, j+7
-                            i+2, j+10
-                            i+2, j+13
-                            i+2, j+16
-                        ]
-                    if List.forall (fun (i, j) -> i < s.Length && j < s.[i].Length && s.[i].[j] = Status.On) monsterSquares then
-                        yield! monsterSquares
-        }
-        |> Set.ofSeq
+        // A sea monster looks like:
+        //                  #
+        //#    ##    ##    ###
+        // #  #  #  #  #  #
+        let monsterSquares =
+            [|
+                    0, 18
+                    1, 0
+                    1, 5
+                    1, 6
+                    1, 11
+                    1, 12
+                    1, 17
+                    1, 18
+                    1, 19
+                    2, 1
+                    2, 4
+                    2, 7
+                    2, 10
+                    2, 13
+                    2, 16
+                |]
+        let len = Array.length monsterSquares
+        let mutable count = 0
+        for i in 0..s.Length - 3 do
+            for j in 0..s.[i].Length - 20 do
+                if Array.forall (fun (offsetI, offsetJ) -> s.[i + offsetI].[j + offsetJ]) monsterSquares then
+                    count <- count + 1
+        // Implicitly we are asserting that sea monsters are disjoint, for the sake of efficiency
+        count * len
 
     let part2 () =
         let tiles =
@@ -633,7 +648,7 @@ module Day20 =
 
         // Can it really be?
         matches
-        |> Map.iter (fun _ matches ->
+        |> Seq.iter (fun (KeyValue(_, matches)) ->
             if matches.BottomTiles.Count > 1 then failwith "Very sad, we're going to have to do some actual work"
             if matches.TopTiles.Count > 1 then failwith "Very sad, we're going to have to do some actual work"
             if matches.RightTiles.Count > 1 then failwith "Very sad, we're going to have to do some actual work"
@@ -644,8 +659,7 @@ module Day20 =
         // challenge so I don't care.
         let built =
             matches
-            |> Map.toSeq
-            |> Seq.collect (fun (i, m) ->
+            |> Seq.collect (fun (KeyValue(i, m)) ->
                 [
                     if m.LeftTiles.IsEmpty then yield ({ Tile = i ; EdgeOnTop = Top ; Flippage = Normal }, Seq.exactlyOne m.RightTiles)
                     if m.RightTiles.IsEmpty then yield ({ Tile = i ; EdgeOnTop = Bottom ; Flippage = Normal }, Seq.exactlyOne m.LeftTiles)
@@ -702,14 +716,14 @@ module Day20 =
             [ Left ; Right ; Top ; Bottom ]
             |> List.allPairs [Flipped ; Normal]
 
-        let hashCount = bigGrid |> Array.sumBy (Array.sumBy (function | Status.On -> 1 | Status.Off -> 0))
+        let hashCount = bigGrid |> Array.sumBy (Array.sumBy (function | true -> 1 | false -> 0))
 
         allPositions
         |> List.choose (fun (flip, side) ->
             let seaMonsterSquares = findSeaMonsterSquares (transformGrid side flip bigGrid)
-            if seaMonsterSquares.IsEmpty then
+            if seaMonsterSquares = 0 then
                 None
             else
-                Some (hashCount - seaMonsterSquares.Count)
+                Some (hashCount - seaMonsterSquares)
         )
         |> List.exactlyOne
