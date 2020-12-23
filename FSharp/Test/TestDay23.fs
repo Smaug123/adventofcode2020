@@ -5,15 +5,16 @@ open AdventOfCode
 open FsUnitTyped
 
 [<TestFixture>]
-module TestDay22 =
+module TestDay23 =
 
     [<Test>]
     let ``Part 1`` () =
-        Day22.part1 ()
-        |> shouldEqual 34255
+        Day23.part1 ()
+        |> shouldEqual "25368479"
 
     [<Test>]
     let ``Part 2`` () =
-        Day22.part2 ()
-        |> shouldEqual 33369
+        Day23.part2 ()
+        |> shouldEqual 44541319250L
+
 

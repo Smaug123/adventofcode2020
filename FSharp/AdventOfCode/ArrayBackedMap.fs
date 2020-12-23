@@ -173,6 +173,21 @@ module ArrayBackedMap =
         elif k > m.Max then failwithf "Attempted to find an index %i greater than the maximum size of this map, %i" k m.Max
         else m.Array.[k] |> ValueOption.get
 
+    let findKey<[<Measure>]'a, 'v> (f : int<'a> -> 'v -> bool) (m : ArrayBackedMap<'a, 'v>) : int<'a> =
+        let mutable i = LanguagePrimitives.Int32WithMeasure 0
+        let mutable stop = false
+        let mutable answer = Unchecked.defaultof<_>
+        while i <= m.Max && stop = false do
+            match m.Array.[i] with
+            | ValueNone -> i <- i + 1
+            | ValueSome v ->
+                if f (LanguagePrimitives.Int32WithMeasure i) v then
+                    stop <- true
+                    answer <- v
+                else
+                    i <- i + 1
+        LanguagePrimitives.Int32WithMeasure i
+
     type AddFailure =
         | Negative of int
         | TooBig of tried : int * max : int

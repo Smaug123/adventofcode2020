@@ -58,7 +58,12 @@ module Day10 =
 
     // As an aside, a little fiddling with generating functions shows that `permissible n` is the nth coefficient
     // in the series expansion of 1/(1-x-x^2-x^3), or (1-x)/(1-2x+x^4).
-    // If you really want to, and you're capable of exponentiating complex numbers, you can get this in constant time.
+    // If you really want to, and you're capable of exponentiating complex numbers and/or taking cosines of real numbers,
+    // you can get an approximation good up to about n=16 in constant time:
+    // 2.0921 1.83929^n + 0.104228 0.737353^n (Cos[2.02842 - 2.17623 n] - Cos[1.11317 + 2.17623 n])
+    // The easiest way to get here is to note that (f(n+2),f(n+1),f(n)) is {{1, 1, 1}, {1, 0, 0}, {0, 1, 0}}^n . (2,1,1),
+    // and diagonalise the matrix to obtain a closed form for the power; an approximation can then be generated entirely
+    // in the reals by taking real parts.
 
     /// Iterate through the seq determining the successive counts between which f becomes true.
     /// For example, [1;2;4;7;8] and (fun x y -> y - x = 3) outputs [3;2].
