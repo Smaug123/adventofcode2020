@@ -37,6 +37,7 @@
         <Compile Include="TestDay21.fs" />
         <Compile Include="TestDay22.fs" />
         <Compile Include="TestDay23.fs" />
+        <Compile Include="TestDay24.fs" />
     </ItemGroup>
 
     <ItemGroup>
