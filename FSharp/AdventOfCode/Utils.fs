@@ -120,3 +120,43 @@ module Int =
         let minB = min a b
         let result = go maxA minB LanguagePrimitives.GenericOne LanguagePrimitives.GenericZero LanguagePrimitives.GenericZero LanguagePrimitives.GenericOne
         if a = maxA then result else {| Hcf = result.Hcf ; A = result.B ; B = result.A |}
+
+    let inline addMod (modulus : ^a) (x1 : ^a) (x2 : ^a) : ^a =
+        let res = x1 + x2
+        if res >= LanguagePrimitives.GenericZero then
+            res % modulus
+        else
+            let x1, x2 = max x1 x2, min x1 x2
+            let x1 = x1 % modulus
+            let x2 = x2 % modulus
+            let res = x1 + x2
+            if res >= LanguagePrimitives.GenericZero then
+                res % modulus
+            else
+                ((x1 - modulus) + x2) % modulus
+
+    let inline timesMod (modulus : ^a) (x1 : ^a) (x2 : ^a) : ^a =
+        let x1 = if x1 < LanguagePrimitives.GenericZero then (x1 % modulus) + modulus else x1 % modulus
+        let x2 = if x2 < LanguagePrimitives.GenericZero then (x2 % modulus) + modulus else x2 % modulus
+        if x1 = LanguagePrimitives.GenericOne then x2 else
+        if x2 = LanguagePrimitives.GenericOne then x1 else
+        if x1 = LanguagePrimitives.GenericZero then x1 else
+        if x2 = LanguagePrimitives.GenericZero then x2 else
+
+        let mutable acc = LanguagePrimitives.GenericZero
+        let mutable max = max x1 x2
+        let mutable min = min x1 x2
+        let two : ^a = LanguagePrimitives.GenericOne + LanguagePrimitives.GenericOne
+        while min > LanguagePrimitives.GenericZero do
+            let rem = min % two
+            min <- min >>> 1
+            if rem <> LanguagePrimitives.GenericZero then
+                acc <- addMod modulus max acc
+            max <- addMod modulus max max
+            if min > max then
+                let temp = max
+                max <- min
+                min <- temp
+
+        acc
+

@@ -2,6 +2,7 @@ namespace AdventOfCode.Test
 
 open NUnit.Framework
 open AdventOfCode
+open AdventOfCode.Internals
 open FsUnitTyped
 
 [<TestFixture>]
@@ -42,7 +43,7 @@ module ExhaustiveDay13 =
             for j in 0..127 do
                 for modulus in 1..127 do
                     let result =
-                        Day13.addMod (sbyte modulus) (sbyte i) (sbyte j)
+                        Int.addMod (sbyte modulus) (sbyte i) (sbyte j)
                         |> int
                     if result <> (i + j) % modulus then
                         failwithf "oh no: %+A %+A %+A, got %A" i j modulus result
@@ -55,7 +56,7 @@ module ExhaustiveDay13 =
             for j in 0..127 do
                 for modulus in 1..127 do
                     let result =
-                        Day13.timesMod (sbyte modulus) (sbyte i) (sbyte j)
+                        Int.timesMod (sbyte modulus) (sbyte i) (sbyte j)
                         |> int
                     if result <> ((i * j) % modulus) then failwithf "oh no: %+A * %+A (mod %+A), got %+A" i j modulus result
                     result

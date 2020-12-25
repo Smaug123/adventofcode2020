@@ -26,47 +26,8 @@ module Day13 =
     module Modulus =
         let inline Times (Modulus (a : ^b)) (Modulus (b : ^b)) : Modulus< ^b> = Modulus (a * b)
 
-    let inline addMod (modulus : ^a) (x1 : ^a) (x2 : ^a) : ^a =
-        let res = x1 + x2
-        if res >= LanguagePrimitives.GenericZero then
-            res % modulus
-        else
-            let x1, x2 = max x1 x2, min x1 x2
-            let x1 = x1 % modulus
-            let x2 = x2 % modulus
-            let res = x1 + x2
-            if res >= LanguagePrimitives.GenericZero then
-                res % modulus
-            else
-                ((x1 - modulus) + x2) % modulus
-
-    let inline timesMod (modulus : ^a) (x1 : ^a) (x2 : ^a) : ^a =
-        let x1 = if x1 < LanguagePrimitives.GenericZero then (x1 % modulus) + modulus else x1 % modulus
-        let x2 = if x2 < LanguagePrimitives.GenericZero then (x2 % modulus) + modulus else x2 % modulus
-        if x1 = LanguagePrimitives.GenericOne then x2 else
-        if x2 = LanguagePrimitives.GenericOne then x1 else
-        if x1 = LanguagePrimitives.GenericZero then x1 else
-        if x2 = LanguagePrimitives.GenericZero then x2 else
-
-        let mutable acc = LanguagePrimitives.GenericZero
-        let mutable max = max x1 x2
-        let mutable min = min x1 x2
-        let two : ^a = LanguagePrimitives.GenericOne + LanguagePrimitives.GenericOne
-        while min > LanguagePrimitives.GenericZero do
-            let rem = min % two
-            min <- min >>> 1
-            if rem <> LanguagePrimitives.GenericZero then
-                acc <- addMod modulus max acc
-            max <- addMod modulus max max
-            if min > max then
-                let temp = max
-                max <- min
-                min <- temp
-
-        acc
-
     let inline private timesModTriple (modulus : ^a) (x1 : ^a) (x2 : ^a) (x3 : ^a) : ^a =
-        timesMod modulus x1 (timesMod modulus x2 x3)
+        Int.timesMod modulus x1 (Int.timesMod modulus x2 x3)
 
     /// Find the unique i, with 0 <= i < mod1 * mod2, such that i = x (mod mod1) and i = y (mod mod2).
     /// For simplicity, we assert that the mod1, mod2 are distinct primes.
@@ -76,7 +37,7 @@ module Day13 =
         let euc = Int.euclideanAlgorithm mod1 mod2
         let t1 = timesModTriple (mod1 * mod2) x euc.B mod2
         let t2 = timesModTriple (mod1 * mod2) y euc.A mod1
-        let result = addMod (mod1 * mod2) t1 t2
+        let result = Int.addMod (mod1 * mod2) t1 t2
         if result < LanguagePrimitives.GenericZero then result + (mod1 * mod2) else result
 
     let inline chineseRemainder' (xs : (^a * Modulus< ^a>) list) =
